@@ -63,4 +63,6 @@ for f in "$MODPATH"/*.sh; do chmod 0755 "$f"; done
 [ -f "$MODPATH/sync-tool" ] && chmod 0755 "$MODPATH/sync-tool"
 [ -f "$MODPATH/lkmloader" ] && chmod 0755 "$MODPATH/lkmloader"
 
+ui_print "! AUDIT BUILD: kernel autoload is disabled by default."
+ui_print "! See module README and BUILD_VERIFICATION.md before opting in."
 ui_print "- Done"

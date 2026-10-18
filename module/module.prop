@@ -1,8 +1,7 @@
 id=hma-uidfake
-name=HMA UID Fake
+name=HMA UID Fake (audited test)
 # Fallback only: the build replaces these two with the git tag and the short hash.
-version=0.1.0
-versionCode=1000
+version=0.3.3-audit
+versionCode=3003
 author=Kodatemitsuru
-description=Fake UID for apps that are "risk", so that they can not be detected by uid scanners. This module is for advanced users only, and it may cause issues with some apps. Use at your own risk.
-updateJson=https://github.com/KodateMitsuru/hma-uidfake/releases/latest/download/update.json
+description=Experimental test build from recovered 0.3.3 sources. Kernel load is opt-in via /data/adb/hma-uidfake/allow_load. Backup and recovery are required.

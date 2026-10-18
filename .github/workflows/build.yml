@@ -99,6 +99,18 @@ jobs:
           set -euo pipefail
           cmake --build build -j"$(nproc)"
           ls -la build/dist
+          zip=$(find build/dist -maxdepth 1 -name '*.zip' -type f -print -quit)
+          test -n "$zip"
+          unzip -t "$zip"
+          unzip -p "$zip" module.prop | grep -q '^version=0\.3\.3-audit+'
+          unzip -Z1 "$zip" | grep -qx 'ko/android14-6.1_arm64_hma_uidfake.ko'
+          unzip -p "$zip" post-fs-data.sh | grep -q 'allow_load'
+          unzip -p "$zip" service.sh | grep -q 'allow_load'
+          if unzip -p "$zip" module.prop | grep -q '^updateJson='; then
+            echo "External updater URL must not be present in audited test build"
+            exit 1
+          fi
+          sha256sum "$zip"
       - uses: actions/upload-artifact@v7
         with:
           name: module-zip

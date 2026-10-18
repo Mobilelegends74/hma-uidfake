@@ -17,3 +17,12 @@ removes the rest. With nothing for your kernel it leaves the closest build as
 this module reads), and points at `docs/build.md`. `post-fs-data.sh` loads the module as early as it
 can and `service.sh` retries; both use the bundled `lkmloader` and log its exit code to
 `state/sync.log` (`lkmloader ... debug=1` names things in dmesg for 60 seconds).
+
+## Audited test branch (not original 0.4.0)
+
+This experimental fork packages the 0.3.3-era source with an explicit opt-in gate.
+After installation, **no kernel module is loaded** until the owner manually creates
+`/data/adb/hma-uidfake/allow_load` and reboots. Root is required to create the marker.
+Do not opt in unless you have a tested rescue path from a bootloop. Deleting the marker
+prevents loading on the next boot; it does not unload already patched kernel hooks.
+This archive is unrelated to any unsigned Telegram ZIP calling itself 0.4.0.
