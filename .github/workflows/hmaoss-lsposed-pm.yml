@@ -8,10 +8,11 @@ on:
       - '.github/workflows/hmaoss-lsposed-pm.yml'
       - 'tools/hma_oss_lsposed_patch.py'
       - 'docs/hma-oss-lsposed-pm.md'
+      - 'docs/releases/hma-oss-lsposed-oss162-pmfix-v1.md'
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-lsposed-apk:
@@ -66,3 +67,30 @@ jobs:
           name: HMA-OSS-LSPosed-oss162-permission-preserving-debug
           path: hmaoss/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+
+      - name: Stage named release APK
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          mapfile -t files < <(find hmaoss/app/build/outputs/apk/debug -type f -name '*.apk' -print)
+          if [ "${#files[@]}" -ne 1 ]; then
+            echo "Expected exactly 1 compiled LSPosed APK, got ${#files[@]}"
+            exit 1
+          fi
+          cp "${files[0]}" dist/HMA-OSS-LSPosed-oss162-PM-ExceptionFix-v1.apk
+          sha256sum dist/*.apk
+          ls -lh dist/*.apk
+
+      - name: Publish HMA-OSS LSPosed in GitHub Releases
+        if: github.ref == 'refs/heads/experiment/hmaoss-lsposed-pm-exceptions'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: hma-oss-lsposed-oss162-pmfix-v1
+          target_commitish: ${{ github.sha }}
+          name: 'HMA-OSS LSPosed oss-162 — PM Exception Fix v1'
+          body_path: docs/releases/hma-oss-lsposed-oss162-pmfix-v1.md
+          files: dist/HMA-OSS-LSPosed-oss162-PM-ExceptionFix-v1.apk
+          fail_on_unmatched_files: true
+          draft: false
+          prerelease: true
+          make_latest: false
