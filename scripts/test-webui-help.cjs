@@ -32,7 +32,7 @@ for (const key of screens) {
 assert(topics.apps.ru.intro.includes("самостоятельные"));
 assert(topics.home.ru.sections.some(s => s.text.includes("no rules yet")));
 assert(topics.app.ru.sections.some(s => s.text.includes("HMA-OSS")));
-assert(topics.settings.en.sections.some(s => s.text.includes("priority")));
+assert(topics.settings.en.sections.some(s => s.text.includes("HMA-OSS")));
 assert(html.indexOf('src="help.js"') < html.indexOf('src="app.js"'));
 assert(uiSource.includes("function showContextHelp(key)"));
 assert(uiSource.includes("function screenHelpKey(s)"));
