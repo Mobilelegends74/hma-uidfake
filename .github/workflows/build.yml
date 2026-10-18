@@ -2,9 +2,8 @@ name: build
 
 on:
   push:
-    branches: [main]
+    branches: [build/android14-6.1-compat]
     tags: ["v*"]
-  pull_request:
   workflow_dispatch:
 
 jobs:
@@ -19,14 +18,7 @@ jobs:
       fail-fast: false
       matrix:
         kmi:
-          - android12-5.10
-          - android13-5.10
-          - android13-5.15
-          - android14-5.15
           - android14-6.1
-          - android15-6.6
-          - android16-6.12
-          - android17-6.18
     steps:
       - uses: actions/checkout@v7
         with:
@@ -66,7 +58,7 @@ jobs:
     # be searched for by a name that is certain (see the upload below), and a
     # download of it can hand the zip back unpacked.
     permissions:
-      contents: write
+      contents: read
     steps:
       - uses: actions/checkout@v7
         with:
