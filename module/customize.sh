@@ -29,7 +29,7 @@ kmi_from_uname() {
   _cands="${_cands# }"
   _count="$(echo "$_cands" | wc -w)"
   if [ "$_count" -ne 1 ]; then
-    [ "$_count" -gt 1 ] && ui_print "! Ambiguous vendor kernel: $_cands (no automatic loading)"
+    [ "$_count" -gt 1 ] && ui_print "! Ambiguous vendor kernel: $_cands (no automatic loading)" >&2
     echo ""
     return
   fi
