@@ -1,11 +1,12 @@
-## 0.3.6-test (unreleased; experimental contextual-help test)
+## 0.3.6-fork (October 2026 — contextual WebUI help and minimal live status)
 
 - KernelSU module list now shows **only** a compact, live status: ✅ Working / ❌ Not working (Russian text when installer detects Russian), with no appended technical description.
 - Keep technical kernel status and live rule counts inside WebUI.
 - Add an information (?) button in every menu, plus shortcuts on each home menu row; help sheets explain each feature in Russian or English.
 - Keep original English function names; translate About explanations and How it works according to Android system language.
 - Improve locale detection for Android system language at install time.
-- No changes to LKM hooks or HMA/HMA-OSS rule parsing. Test branch only; no public release.
+- Improved installer locale detection using active Android configuration (`am get-config`) with system-property fallback.
+- No changes to LKM hooks or HMA/HMA-OSS rule parsing; release promoted from the CI-verified `0.3.6-test` build.
 
 ## 0.3.5-fork (October 2026 — bilingual WebUI and fork branding)
 

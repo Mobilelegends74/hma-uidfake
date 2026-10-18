@@ -2,7 +2,7 @@ name: build
 
 on:
   push:
-    branches: [main, build/android14-6.1-compat, feature/webui-audited-build-v2, feature/ru-en-webui-fork-readme, test/context-help-status-v036]
+    branches: [main, release/v0.3.6-fork, build/android14-6.1-compat, feature/webui-audited-build-v2, feature/ru-en-webui-fork-readme, test/context-help-status-v036]
     tags: ["v*"]
   pull_request:
     branches: [main, build/android14-6.1-compat]
@@ -127,7 +127,7 @@ jobs:
           zip=$(find build/dist -maxdepth 1 -name '*.zip' -type f -print -quit)
           test -n "$zip"
           unzip -t "$zip"
-          unzip -p "$zip" module.prop | grep -q '^version=0[.]3[.]6-test+'
+          unzip -p "$zip" module.prop | grep -q '^version=0[.]3[.]6-fork+'
           for kmi in android12-5.10 android13-5.10 android13-5.15 android14-5.15 android14-6.1 android15-6.6 android16-6.12 android17-6.18; do
             unzip -Z1 "$zip" | grep -qx "ko/${kmi}_arm64_hma_uidfake.ko"
           done
@@ -206,14 +206,14 @@ jobs:
           cp "$zip" build/dist/hma-uidfake-fork-latest.zip
           unzip -t build/dist/hma-uidfake-fork-latest.zip
           sha256sum build/dist/*.zip
-      - name: Publish HMA UID Fake fork v0.3.5
+      - name: Publish HMA UID Fake fork v0.3.6
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.3.5-fork
+          tag_name: v0.3.6-fork
           target_commitish: ${{ github.sha }}
-          name: 'HMA UID Fake fork v0.3.5 — RU/EN WebUI'
-          body_path: docs/releases/v0.3.5-fork.md
+          name: 'HMA UID Fake fork v0.3.6 — Context Help RU/EN'
+          body_path: docs/releases/v0.3.6-fork.md
           files: build/dist/*.zip
           fail_on_unmatched_files: true
           draft: false

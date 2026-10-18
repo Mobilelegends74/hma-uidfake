@@ -34,8 +34,9 @@ It is an additional privacy layer, **not a replacement for HMA-OSS**. The fork b
 | **HMA / HMA-OSS integration** | Imports configuration, presets and effective hiding rules; synchronizes updates. |
 | **Native + compat hooks** | Native and 32-bit compatibility interception where supported by the kernel. |
 | **Caller identity** | Tracks the application associated with a process in supported isolated-process and UID-changing scenarios. |
-| **WebUI in KernelSU** | Kernel status, active rule count, per-app rules, templates, themes, JSON backup/restore, and independent policy settings. |
-| **Russian and English** | Android's **system language at installation time** selects Russian or English; non-Russian locales use English. |
+| **WebUI in KernelSU** | Kernel status, active rule count, per-app rules, templates, themes, JSON backup/restore, and contextual `?` explanations on 12 screens. |
+| **Russian / English explanations** | Feature names stay in English. Contextual `?` help, About / How it works explanations and the compact KernelSU status follow **Android's system language at installation time**; other languages use English. |
+| **Minimal module status** | The KernelSU module list displays only `✅ Working` or `❌ Not working`, with details available inside WebUI. |
 | **Automatic start** | Loads the selected KMI build after one normal reboot, without a manual `allow_load` gate. |
 | **8 KMI targets** | Separate builds for Android 12 through Android 17 GKI/KMI variants. |
 
@@ -58,7 +59,7 @@ Requires **ARM64**, root with **KernelSU / KernelSU Next** capable of loading an
 
 1. [**Download the latest flashable ZIP**](https://github.com/Mobilelegends74/hma-uidfake/releases/latest/download/hma-uidfake-fork-latest.zip).
 2. In KernelSU Next, open **Modules** → **Install from storage** and select the ZIP.
-3. The installer detects both the kernel KMI and the Android **system language**. Russian Android → Russian WebUI; all other languages → English.
+3. The installer detects both the kernel KMI and the Android **system language**. Russian Android → Russian help, About text and status; all other languages → English. Feature labels remain in English.
 4. Perform **one normal reboot**. No `allow_load` file and no second reboot are required.
 5. Open the module's WebUI in KernelSU Next and verify the active kernel hooks and rule count.
 
