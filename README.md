@@ -7,7 +7,7 @@
 **Ядровой модуль для KernelSU Next, дополняющий скрытие приложений HMA / HMA-OSS.**
 
 [![Build](https://img.shields.io/github/actions/workflow/status/Mobilelegends74/hma-uidfake/build.yml?branch=main&label=Build&style=flat-square)](https://github.com/Mobilelegends74/hma-uidfake/actions/workflows/build.yml)
-[![Latest Release](https://img.shields.io/github/v/release/Mobilelegends74/hma-uidfake?label=Latest%20release&style=flat-square)](https://github.com/Mobilelegends74/hma-uidfake/releases/latest)
+[![Latest Release](https://img.shields.io/badge/Latest_release-v0.3.6--fork-orange?style=flat-square)](https://github.com/Mobilelegends74/hma-uidfake/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/Mobilelegends74/hma-uidfake/total?label=Downloads&style=flat-square)](https://github.com/Mobilelegends74/hma-uidfake/releases)
 [![License](https://img.shields.io/badge/License-GPL--2.0-blue?style=flat-square)](LICENSE)
 [![Architecture](https://img.shields.io/badge/Arch-arm64-5a81d8?style=flat-square)](#требования)
