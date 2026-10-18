@@ -5,7 +5,7 @@ on:
     branches: [main, build/android14-6.1-compat, feature/webui-audited-build-v2, feature/ru-en-webui-fork-readme]
     tags: ["v*"]
   pull_request:
-    branches: [build/android14-6.1-compat]
+    branches: [main, build/android14-6.1-compat]
   workflow_dispatch:
 
 jobs:
@@ -67,7 +67,7 @@ jobs:
     # be searched for by a name that is certain (see the upload below), and a
     # download of it can hand the zip back unpacked.
     permissions:
-      contents: read
+      contents: write
     steps:
       - uses: actions/checkout@v7
         with:
@@ -135,7 +135,7 @@ jobs:
           unzip -Z1 "$zip" | grep -qx 'webroot/app.js'
           unzip -Z1 "$zip" | grep -qx 'webroot/i18n.js'
           unzip -Z1 "$zip" | grep -qx 'webroot/locale.js'
-          unzip -p "$zip" module.prop | grep -q '^name=HMA UID Fake fork
+          unzip -p "$zip" module.prop | grep -q '^name=HMA UID Fake fork$'
           unzip -Z1 "$zip" | grep -qx 'webroot/style.css'
           unzip -Z1 "$zip" | grep -qx 'load.sh'
           if unzip -p "$zip" post-fs-data.sh | grep -q allow_load; then
@@ -191,57 +191,26 @@ jobs:
       # module.prop points updateJson at releases/latest/download/update.json, so it is this
       # asset -- not a file in the repository -- that the module manager reads.
 
-          unzip -Z1 "$zip" | grep -qx 'webroot/style.css'
-          unzip -Z1 "$zip" | grep -qx 'load.sh'
-          if unzip -p "$zip" post-fs-data.sh | grep -q allow_load; then
-            echo "Manual activation requirement must not exist"
-            exit 1
-          fi
-          if unzip -p "$zip" webroot/app.js | grep -q '/data/local/tmp/hma-uidfake-webui.json'; then
-            echo "Insecure temp config export present"
-            exit 1
-          fi
-          unzip -p "$zip" service.sh | grep -q 'uidfake_load'
-          if unzip -p "$zip" module.prop | grep -q '^updateJson='; then
-            echo "External updater URL must not be present in audited test build"
-            exit 1
-          fi
-          sha256sum "$zip"
-      - uses: actions/upload-artifact@v7
-        with:
-          name: module-zip
-          path: build/dist/*.zip
-          # Without this the zip is put inside an archive of the artifact's own,
-          # so what a user downloads is a zip holding the module zip. With it the
-          # artifact carries the file's name, not the `name:` above.
-          archive: false
-      - name: Write update.json
-        if: startsWith(github.ref, 'refs/tags/v')
+      # Stable filename: README always downloads the newest published module ZIP.
+      - name: Prepare stable module ZIP
+        if: github.ref == 'refs/heads/main'
         run: |
           set -euo pipefail
-          zip=$(ls build/dist/*.zip)
-          # The packed module.prop already carries what this build computed, so the JSON cannot
-          # disagree with the module it describes.
-          version=$(unzip -p "$zip" module.prop | sed -n 's/^version=//p')
-          code=$(unzip -p "$zip" module.prop | sed -n 's/^versionCode=//p')
-          tag="${{ github.ref_name }}"
-          asset=$(basename "$zip")
-          changelog="https://raw.githubusercontent.com/${{ github.repository }}/$tag/CHANGELOG.md"
-          grep -qF "${version%%+*}" CHANGELOG.md ||
-            { echo "CHANGELOG.md has no entry for $version"; exit 1; }
-          cat > build/dist/update.json <<JSON
-          {
-            "version": "$version",
-            "versionCode": $code,
-            "zipUrl": "https://github.com/${{ github.repository }}/releases/download/$tag/$asset",
-            "changelog": "$changelog"
-          }
-          JSON
-          cat build/dist/update.json
-      - uses: softprops/action-gh-release@v3
-        if: startsWith(github.ref, 'refs/tags/v')
+          zip=$(find build/dist -maxdepth 1 -name 'hma-uidfake-*.zip' -type f -print -quit)
+          test -n "$zip"
+          cp "$zip" build/dist/hma-uidfake-fork-latest.zip
+          unzip -t build/dist/hma-uidfake-fork-latest.zip
+          sha256sum build/dist/*.zip
+      - name: Publish HMA UID Fake fork v0.3.5
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
         with:
-          files: build/dist/*
-          generate_release_notes: true
-      # module.prop points updateJson at releases/latest/download/update.json, so it is this
-      # asset -- not a file in the repository -- that the module manager reads.
+          tag_name: v0.3.5-fork
+          target_commitish: ${{ github.sha }}
+          name: 'HMA UID Fake fork v0.3.5 — RU/EN WebUI'
+          body_path: docs/releases/v0.3.5-fork.md
+          files: build/dist/*.zip
+          fail_on_unmatched_files: true
+          draft: false
+          prerelease: false
+          make_latest: true
