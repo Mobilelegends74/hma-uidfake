@@ -14,7 +14,7 @@
 
 [Русская версия](README.md) · **English**
 
-[![Download latest ZIP](https://img.shields.io/badge/⬇_Download_latest_version-ZIP-2e9c82?style=for-the-badge)](https://github.com/Mobilelegends74/hma-uidfake/releases/latest/download/hma-uidfake-fork-latest.zip)
+[![Download latest ZIP](https://img.shields.io/badge/⬇_Download_latest_version-ZIP-2e9c82?style=for-the-badge)](https://github.com/Mobilelegends74/hma-uidfake/releases/download/v0.3.6-fork/hma-uidfake-fork-0.3.6.zip)
 
 [Release notes](https://github.com/Mobilelegends74/hma-uidfake/releases) · [Report an issue](https://github.com/Mobilelegends74/hma-uidfake/issues) · [GitHub Actions](https://github.com/Mobilelegends74/hma-uidfake/actions)
 
@@ -57,7 +57,7 @@ Requires **ARM64**, root with **KernelSU / KernelSU Next** capable of loading an
 
 ## Installation
 
-1. [**Download the latest flashable ZIP**](https://github.com/Mobilelegends74/hma-uidfake/releases/latest/download/hma-uidfake-fork-latest.zip).
+1. [**Download the latest flashable ZIP**](https://github.com/Mobilelegends74/hma-uidfake/releases/download/v0.3.6-fork/hma-uidfake-fork-0.3.6.zip).
 2. In KernelSU Next, open **Modules** → **Install from storage** and select the ZIP.
 3. The installer detects both the kernel KMI and the Android **system language**. Russian Android → Russian help, About text and status; all other languages → English. Feature labels remain in English.
 4. Perform **one normal reboot**. No `allow_load` file and no second reboot are required.

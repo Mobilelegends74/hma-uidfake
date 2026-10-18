@@ -1,0 +1,73 @@
+name: Normalize v0.3.6 release assets (one-time)
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/normalize-v036-release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    # This workflow touches ONLY v0.3.6-fork and does not create other releases.
+    if: github.repository == 'Mobilelegends74/hma-uidfake'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: v0.3.6-fork
+      ORIGINAL: hma-uidfake-0.3.6-fork+fa72fe4.zip
+      NEW_ASSET: hma-uidfake-fork-0.3.6.zip
+      ORIGINAL_SHA256: d0315a3acde5cb11969aad6fa76be0d42bbbbcbfb225f61410017d08791272f9
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Preserve verified archive under the one versioned release filename
+        shell: bash
+        run: |
+          set -euo pipefail
+          tmp=$(mktemp -d)
+          trap 'rm -rf "$tmp"' EXIT
+          mkdir -p "$tmp/source" "$tmp/verify"
+          gh release download "$RELEASE_TAG" --pattern "$ORIGINAL" --dir "$tmp/source"
+          echo "$ORIGINAL_SHA256  $tmp/source/$ORIGINAL" | sha256sum --check --status
+          cp "$tmp/source/$ORIGINAL" "$tmp/$NEW_ASSET"
+          gh release upload "$RELEASE_TAG" "$tmp/$NEW_ASSET" --clobber
+          gh release download "$RELEASE_TAG" --pattern "$NEW_ASSET" --dir "$tmp/verify"
+          echo "$ORIGINAL_SHA256  $tmp/verify/$NEW_ASSET" | sha256sum --check --status
+          echo "Verified new asset: $NEW_ASSET"
+
+      - name: Remove redundant ZIP assets ONLY AFTER verifying the new file
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Before:"
+          gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name'
+          while IFS= read -r asset; do
+            [ "$asset" = "$NEW_ASSET" ] && continue
+            case "$asset" in
+              hma-uidfake-*.zip)
+                gh release delete-asset "$RELEASE_TAG" "$asset" --yes
+                ;;
+              *)
+                echo "Unexpected asset, preserving: $asset"
+                ;;
+            esac
+          done < <(gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name')
+
+          echo "After:"
+          gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name'
+          count=$(gh release view "$RELEASE_TAG" --json assets --jq '.assets | length')
+          test "$count" -eq 1
+          name=$(gh release view "$RELEASE_TAG" --json assets --jq '.assets[0].name')
+          test "$name" = "$NEW_ASSET"
+
+      - name: Update release notes to the new filename
+        run: |
+          set -euo pipefail
+          gh release edit "$RELEASE_TAG" --notes-file docs/releases/v0.3.6-fork.md
+          echo "Release asset cleanup complete."

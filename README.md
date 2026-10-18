@@ -15,7 +15,7 @@
 
 **Русский** · [English](README_EN.md)
 
-[![Скачать последнюю версию](https://img.shields.io/badge/⬇_Скачать_последнюю_версию-ZIP-2e9c82?style=for-the-badge)](https://github.com/Mobilelegends74/hma-uidfake/releases/latest/download/hma-uidfake-fork-latest.zip)
+[![Скачать последнюю версию](https://img.shields.io/badge/⬇_Скачать_последнюю_версию-ZIP-2e9c82?style=for-the-badge)](https://github.com/Mobilelegends74/hma-uidfake/releases/download/v0.3.6-fork/hma-uidfake-fork-0.3.6.zip)
 
 [Релизы и изменения](https://github.com/Mobilelegends74/hma-uidfake/releases) · [Сообщить о проблеме](https://github.com/Mobilelegends74/hma-uidfake/issues) · [GitHub Actions](https://github.com/Mobilelegends74/hma-uidfake/actions)
 
@@ -66,7 +66,7 @@
 
 ## Установка
 
-1. Скачайте **[последний установочный ZIP](https://github.com/Mobilelegends74/hma-uidfake/releases/latest/download/hma-uidfake-fork-latest.zip)**.
+1. Скачайте **[последний установочный ZIP](https://github.com/Mobilelegends74/hma-uidfake/releases/download/v0.3.6-fork/hma-uidfake-fork-0.3.6.zip)**.
 2. Откройте KernelSU Next → **Модули** → **Установить из хранилища** и выберите ZIP.
 3. Установщик определит KMI текущего ядра и **системный язык Android**. Русский Android → русские справка, About и статус; любой другой язык → английский. Названия функций сохраняются на английском.
 4. Перезагрузите устройство **один раз** обычным способом. Дополнительный файл `allow_load` создавать не нужно.

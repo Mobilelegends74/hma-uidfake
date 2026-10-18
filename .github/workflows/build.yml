@@ -4,6 +4,10 @@ on:
   push:
     branches: [main, release/v0.3.6-fork, build/android14-6.1-compat, feature/webui-audited-build-v2, feature/ru-en-webui-fork-readme, test/context-help-status-v036]
     tags: ["v*"]
+    paths-ignore:
+      - 'README.md'
+      - 'README_EN.md'
+      - 'docs/**'
   pull_request:
     branches: [main, build/android14-6.1-compat]
   workflow_dispatch:
@@ -165,6 +169,26 @@ jobs:
           # so what a user downloads is a zip holding the module zip. With it the
           # artifact carries the file's name, not the `name:` above.
           archive: false
+      # Publish only when an explicit version tag is pushed, never for README edits.
+      # A single versioned filename is used for each tag (no commit hash in Assets).
+      - name: Give tagged archive its public version name
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          set -euo pipefail
+          tag="${{ github.ref_name }}"
+          case "$tag" in
+            v[0-9]*-fork) ;;
+            *) echo "Unexpected release tag: $tag"; exit 1 ;;
+          esac
+          number="${tag#v}"
+          number="${number%-fork}"
+          source=$(find build/dist -maxdepth 1 -name 'hma-uidfake-*.zip' -type f -print -quit)
+          test -n "$source"
+          dest="build/dist/hma-uidfake-fork-${number}.zip"
+          test "$source" != "$dest"
+          mv "$source" "$dest"
+          unzip -t "$dest"
+          sha256sum "$dest"
       - name: Write update.json
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
@@ -195,27 +219,3 @@ jobs:
           generate_release_notes: true
       # module.prop points updateJson at releases/latest/download/update.json, so it is this
       # asset -- not a file in the repository -- that the module manager reads.
-
-      # Stable filename: README always downloads the newest published module ZIP.
-      - name: Prepare stable module ZIP
-        if: github.ref == 'refs/heads/main'
-        run: |
-          set -euo pipefail
-          zip=$(find build/dist -maxdepth 1 -name 'hma-uidfake-*.zip' -type f -print -quit)
-          test -n "$zip"
-          cp "$zip" build/dist/hma-uidfake-fork-latest.zip
-          unzip -t build/dist/hma-uidfake-fork-latest.zip
-          sha256sum build/dist/*.zip
-      - name: Publish HMA UID Fake fork v0.3.6
-        if: github.ref == 'refs/heads/main'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v0.3.6-fork
-          target_commitish: ${{ github.sha }}
-          name: 'HMA UID Fake fork v0.3.6 — Context Help RU/EN'
-          body_path: docs/releases/v0.3.6-fork.md
-          files: build/dist/*.zip
-          fail_on_unmatched_files: true
-          draft: false
-          prerelease: false
-          make_latest: true
