@@ -90,6 +90,14 @@ std::optional<Config> parse_args(int argc, char **argv) {
       config.once = true;
     } else if (arg == "--write-config") {
       config.write_config = true;
+    } else if (arg == "--status") {
+      config.status = true;
+    } else if (arg == "--packages" || arg == "--list-packages") {
+      config.list_packages = true;
+    } else if (arg == "--get-config" || arg == "--dump-config") {
+      config.get_config = true;
+    } else if (arg == "--set-config" || arg == "--apply-config") {
+      config.set_config = true;
     } else if (arg == "--template" && i + 1 < argc) {
       config.make_template = std::string{argv[++i]};
     } else if (arg == "--list" && i + 1 < argc) {
@@ -101,7 +109,8 @@ std::optional<Config> parse_args(int argc, char **argv) {
       std::fprintf(
           stderr,
           "usage: %s [--once] [--explain CALLER TARGET] [--list CALLER] "
-          "[--template CALLER [--write-config]]\n",
+          "[--template CALLER [--write-config]] [--status] [--packages] "
+          "[--get-config] [--set-config < config.json]\n",
           argc > 0 ? argv[0] : "sync-tool");
       return std::nullopt;
     }
@@ -146,6 +155,8 @@ Syncer::open_rules(const std::filesystem::path &file,
   const std::optional<RuleSource> source = RuleSource::active(sources_);
   if (source && source->tool() == Tool::HmaOss)
     rules = HmaOssRules::load(file);
+  else if (source && source->tool() == Tool::Native)
+    rules = NativeRules::load(file);
   else
     rules = HmaRules::load(file);
   if (!rules) {
@@ -193,7 +204,7 @@ void Syncer::sync_now(std::string_view why) {
     if (!config_refused_) {
       config_refused_ = true;
       Log::warn("no readable rule source yet (keeping the previous policy)");
-      report_status("waiting for an HMA config");
+      report_status("waiting for a rule config");
     }
     return;
   }
@@ -657,6 +668,183 @@ void Syncer::template_for(std::string_view caller, bool write) {
   }
   std::filesystem::rename(tmp, *file, ignored);
   Log::info("wrote {} (backup {})", file->string(), backup);
+}
+
+/* ---- the WebUI's commands ---- */
+
+/*
+ * What the kernel says, what this tool is running as and where it reads its
+ * rules, as one JSON object. The page paints this; nothing here decides
+ * anything and nothing is printed beside it.
+ */
+void Syncer::print_status() {
+  nlohmann::json out;
+  out["ok"] = true;
+  out["tool"] = "sync-tool";
+  out["rules"] = pushed_.size();
+
+  const auto source = RuleSource::active(sources_);
+  out["source"] = source ? std::string{tool_name(source->tool())} : "none";
+
+  const auto native = native_config_file();
+  std::error_code ignored;
+  out["config"] = native.string();
+  out["config_present"] = std::filesystem::exists(native, ignored);
+
+  if (const auto st = netlink_.status()) {
+    out["kernel"] = {
+        {"native", st->native},
+        {"compat", st->compat},
+        {"apk_inodes", st->apk_inodes},
+        {"apk_offered", st->apk_offered},
+        {"apk_failed", st->apk_failed},
+        {"apk_failed_total", st->apk_failed_total},
+        {"lsm_state", st->lsm_state},
+        {"va_bits", st->va_bits},
+        {"page_shift", st->page_shift},
+        {"last_error", st->last_error},
+    };
+    out["kernel"]["summary"] = status_line(netlink_, pushed_.size());
+  } else {
+    out["kernel"] = nullptr;
+    out["kernel_note"] = netlink_.unsupported() ? "module older than tool"
+                                                : "status unavailable";
+  }
+  std::println("{}", out.dump());
+}
+
+/* Every installed app, so the page can offer one to pick as a caller or a
+ * target. System apps are listed too -- the page is what decides whether to
+ * show them -- but the uid is carried so it does not have to be guessed at. */
+void Syncer::print_packages() {
+  nlohmann::json out;
+  out["ok"] = false;
+  out["packages"] = nlohmann::json::array();
+
+  const PackageDb *packages = this->packages();
+  if (packages == nullptr) {
+    std::println("{}", out.dump());
+    return;
+  }
+  out["ok"] = true;
+  for (const auto &[name, info] : packages->by_name()) {
+    if (info.uid < kFirstAppUid)
+      continue; /* only app uids take part in hiding */
+    out["packages"].push_back({{"name", name},
+                               {"uid", info.uid},
+                               {"system", info.system},
+                               {"code_dir", info.code_dir.string()}});
+  }
+  std::println("{}", out.dump());
+}
+
+/* The native config as it stands, so the page can edit what is really there and
+ * not a copy it made up. A fresh install has none: the defaults below are the
+ * same ones the page would write on its first save. */
+void Syncer::print_config() {
+  const auto path = native_config_file();
+  std::error_code ignored;
+
+  nlohmann::json out;
+  out["path"] = path.string();
+  out["present"] = std::filesystem::exists(path, ignored);
+
+  nlohmann::json config = nlohmann::json::object();
+  if (out["present"].get<bool>()) {
+    try {
+      std::ifstream in{path};
+      in >> config;
+    } catch (const std::exception &e) {
+      out["error"] = e.what();
+      config = nlohmann::json::object();
+    }
+  }
+  if (!config.is_object())
+    config = nlohmann::json::object();
+  if (!config.contains("version"))
+    config["version"] = 2;
+  if (!config.contains("mode"))
+    config["mode"] = "blacklist";
+  if (!config.contains("apps"))
+    config["apps"] = nlohmann::json::object();
+  if (!config.contains("templates"))
+    config["templates"] = nlohmann::json::object();
+
+  out["config"] = config;
+  std::println("{}", out.dump());
+}
+
+bool Syncer::set_config() {
+  std::string text;
+  {
+    char buffer[4096];
+    std::size_t got;
+
+    while ((got = std::fread(buffer, 1, sizeof(buffer), stdin)) > 0)
+      text.append(buffer, got);
+  }
+  if (text.empty()) {
+    Log::warn("no config on stdin");
+    return false;
+  }
+
+  nlohmann::json config;
+  try {
+    config = nlohmann::json::parse(text);
+  } catch (const std::exception &e) {
+    Log::warn("the config does not parse: {}", e.what());
+    return false;
+  }
+  if (!config.is_object()) {
+    Log::warn("the config has to be a JSON object");
+    return false;
+  }
+  /* Refuse what the reader would refuse, before anything is written: a file
+   * that is left in place but that the daemon then refuses is the state where
+   * the page and the policy disagree. */
+  if (config.value("version", 2) > 2) {
+    Log::warn("the config is version {} and this tool knows at most {}",
+              config.value("version", 2), 2);
+    return false;
+  }
+
+  const auto path = native_config_file();
+  {
+    std::error_code ignored;
+
+    std::filesystem::create_directories(path.parent_path(), ignored);
+  }
+
+  const auto tmp = path.string() + ".tmp";
+  {
+    std::ofstream out{tmp, std::ios::trunc};
+    if (!out) {
+      Log::warn("cannot write {}", tmp);
+      return false;
+    }
+    out << config.dump(2) << '\n';
+    out.flush();
+    if (!out) {
+      Log::warn("cannot write {}", tmp);
+      return false;
+    }
+  }
+  /* One copy of what was there, so a bad edit can be undone by hand, and a
+   * rename so a half-written file can never be read. */
+  std::error_code ignored;
+  if (std::filesystem::exists(path, ignored))
+    std::filesystem::copy_file(
+        path, path.string() + ".bak",
+        std::filesystem::copy_options::overwrite_existing, ignored);
+  std::filesystem::rename(tmp, path, ignored);
+  if (ignored) {
+    Log::warn("cannot replace {}: {}", path.string(), ignored.message());
+    return false;
+  }
+
+  Log::info("wrote {} ({} byte(s))", path.string(), text.size());
+  sync_now("config written");
+  return true;
 }
 
 bool Syncer::run() {

@@ -1,17 +1,11 @@
-# HMA UID Fake
+# HMA UID Fake – audited WebUI Action branch
 
-KernelSU module that makes the uid of an app hidden by HMA (or HMA-OSS) answer as if it did
-not exist:
+This branch extends the **owner's verified 0.3.3-audit Android14-6.1 build** with the open-source WebUI and standalone configuration backend from [SHuiTU68/hma-uidfake](https://github.com/SHuiTU68/hma-uidfake).
 
-```
-getpriority(PRIO_USER, uid)       -> -ESRCH
-ioprio_get(IOPRIO_WHO_USER, uid)  -> -EINVAL
-setpriority / ioprio_set          -> same
-```
+The `getpriority`, `ioprio_get` and UID hook code remains the audited 0.3.3 implementation. The user-supplied 0.4.0 ZIP was examined statically but its newer closed inline-hook implementation was **not** copied into the codebase or binaries. This branch does **not** claim 0.4.0 hook parity or guaranteed detector bypass.
 
-Which rules apply follows the app a process was born from, not the uid it holds when it calls, so an
-isolated child or anything that called `setuid()` answers the same way.
+The kernel module load is **opt-in** via `/data/adb/hma-uidfake/allow_load`; see [module/README.md](module/README.md). The standalone WebUI native config is kept at `/data/adb/hma-uidfake/config.json` and takes precedence once saved, even when HMA-OSS remains installed. The WebUI warns about that transition and uses stdin instead of temporary config files.
 
-Install the release zip with KernelSU. Design and build: [docs](docs/).
+The workflow builds and validates a ZIP for KMI `android14-6.1`. There is no external update URL, no unsigned imported binaries, and no automatic merge to the default branch.
 
-GPL-2.0, see [LICENSE](LICENSE).
+[Detailed provenance and 0.4.0 audit](docs/legacy-040-review.md)

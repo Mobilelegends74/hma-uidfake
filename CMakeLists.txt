@@ -12,6 +12,10 @@ project(hma-uidfake LANGUAGES NONE)
 set(DDK_ROOT "/opt/ddk" CACHE PATH "DDK root (provides kdir/ and clang/)")
 set(UG_NDK "" CACHE PATH "Android NDK root")
 option(UG_USE_PREBUILT_KO "Package existing kernel modules from build/ko" OFF)
+# A caller that chose not to build the kernel modules still gets a module zip: a sync-tool or
+# WebUI change does not need a new ko. Off by default, so a build that meant to carry a ko and
+# lost it fails here instead of quietly shipping a zip without one.
+option(UG_ALLOW_NO_KO "Package a module even when no kernel modules were supplied" OFF)
 option(UG_DEBUG "Build a module whose diagnostics are on from boot" OFF)
 
 # KMI -> clang shipped with the DDK. Each KMI is built by the compiler its kernel was built with,
@@ -135,8 +139,11 @@ endif()
 set(_ko_outputs "")
 if(UG_USE_PREBUILT_KO)
   file(GLOB _ko_outputs CONFIGURE_DEPENDS "${KO_DIR}/*.ko")
-  if(NOT _ko_outputs)
+  if(NOT _ko_outputs AND NOT UG_ALLOW_NO_KO)
     message(FATAL_ERROR "UG_USE_PREBUILT_KO is enabled, but no kernel modules were found in ${KO_DIR}")
+  endif()
+  if(NOT _ko_outputs)
+    message(WARNING "UG_ALLOW_NO_KO is on and ${KO_DIR} is empty: packing a module with no kernel module")
   endif()
 else()
   foreach(_pair IN LISTS UG_KMI_CLANG)

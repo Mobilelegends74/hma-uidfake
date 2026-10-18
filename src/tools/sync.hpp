@@ -33,6 +33,17 @@ struct Config {
    * --write-config, put it into the config as well. */
   std::optional<std::string> make_template;
   bool write_config = false;
+
+  /*
+   * The WebUI's four commands. They are separate from the daemon's loop, run
+   * once and exit, and each prints one JSON document on stdout so the page can
+   * read it without parsing a log: --status, --packages, --get-config and
+   * --set-config (which reads its document from stdin).
+   */
+  bool status = false;
+  bool list_packages = false;
+  bool get_config = false;
+  bool set_config = false;
 };
 
 /* Prints the usage line to stderr and returns nullopt on a bad command line. */
@@ -54,6 +65,18 @@ public:
   /* The same set as a template HMA-OSS reads from the config, which both the
    * system server and an app process read alike. */
   void template_for(std::string_view caller, bool write);
+
+  /* One JSON document on stdout, for the WebUI. */
+  void print_status();
+  void print_packages();
+  void print_config();
+
+  /*
+   * Read a native config from stdin, check it, write it beside the module and
+   * push the result. A config that does not parse changes nothing, which is the
+   * same rule a policy that does not fit follows.
+   */
+  [[nodiscard]] bool set_config();
 
   /* Syncs once, then keeps following the files until it is killed. */
   [[nodiscard]] bool run();

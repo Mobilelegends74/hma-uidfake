@@ -11,9 +11,23 @@ namespace uidfake {
 
 inline constexpr std::string_view kPackagesXml = "/data/system/packages.xml";
 
-/* Which of the two apps a config belongs to. It is a property of where the file
- * is kept, and it decides which class reads it. */
-enum class Tool { Hma, HmaOss };
+/* Which format a config is in. It is a property of where the file is kept, and
+ * it decides which class reads it: the module's own (Native), or one of the two
+ * apps' configs it can still follow. */
+enum class Tool { Native, Hma, HmaOss };
+
+/* Where the module keeps its own config when it is the rule source. This is
+ * outside /data/adb/modules/ on purpose: a module update replaces that tree,
+ * and a list of what to hide is not something an update should carry away. */
+inline constexpr std::string_view kNativeConfigDir = "/data/adb/hma-uidfake";
+inline constexpr std::string_view kNativeConfigFile = "config.json";
+
+/* The one native config the tool reads and the WebUI writes: the first place
+ * the lookup order below checks. */
+[[nodiscard]] inline std::filesystem::path native_config_file() {
+  return std::filesystem::path{std::string{kNativeConfigDir} + "/" +
+                               std::string{kNativeConfigFile}};
+}
 
 [[nodiscard]] std::string_view tool_name(Tool tool);
 

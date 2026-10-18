@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<!--
+  The module's WebUI, served by the KernelSU manager out of module/webroot/.
+
+  It decides nothing on its own. Every read is a sync-tool command
+  (--status, --packages, --get-config) and every write is --set-config, so the
+  page and the running policy cannot disagree about which format a file is in:
+  the tool is the only thing that reads or writes the config, and it validates
+  before it writes.
+
+  The screens follow the layout of the HMA-OSS app (a home list over sub-screens,
+  a searchable app list, per-app settings, templates), because that is the shape
+  these settings are already familiar in. It is a reimplementation, not a copy:
+  HMA-OSS is AGPL-3.0 and this module is GPL-2.0, and nothing here is derived
+  from its source. Screens it has that a kernel-side uid guard cannot honour --
+  icon and launcher hiding, per-hook switches, logs, accessibility -- are left
+  out rather than shown as dead switches.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="color-scheme" content="dark light" />
+    <title>HMA UID Fake</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="snackbar" class="snackbar hidden" role="status"></div>
+    <div id="busy" class="busy hidden" aria-hidden="true">
+      <div class="spinner"></div>
+    </div>
+    <div id="dialog" class="dialog-root hidden"></div>
+    <script src="app.js"></script>
+  </body>
+</html>

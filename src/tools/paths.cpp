@@ -51,11 +51,28 @@ resolve_user_prefix(const std::filesystem::path &path) {
 } // namespace
 
 std::string_view tool_name(Tool tool) {
-  return tool == Tool::HmaOss ? "hma-oss" : "hma";
+  switch (tool) {
+  case Tool::Native:
+    return "uidfake";
+  case Tool::HmaOss:
+    return "hma-oss";
+  case Tool::Hma:
+    break;
+  }
+  return "hma";
 }
 
 std::vector<RuleSource> RuleSource::known() {
+  /*
+   * The module's own config comes first: with one present the tool never reads
+   * HMA's, so a device can drop the app and keep working. The two app sources
+   * stay behind it, so an existing install whose config is already written
+   * keeps working until the native one appears.
+   */
   return {
+      {native_config_file(), Tool::Native},
+      {std::filesystem::path{"/data/adb/modules/hma-uidfake/config.json"},
+       Tool::Native},
       {std::filesystem::path{
            "/data/user/0/com.tsng.hidemyapplist/files/config.json"},
        Tool::Hma},

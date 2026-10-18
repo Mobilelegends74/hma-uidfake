@@ -13,6 +13,7 @@
 using uidfake::Presets;
 using uidfake::HmaOssRules;
 using uidfake::HmaRules;
+using uidfake::NativeRules;
 
 namespace
 {
@@ -243,11 +244,103 @@ void test_xposed_preset()
 	std::filesystem::remove(dir);
 }
 
+/* The module's own format: the rule source a device without HMA/HMA-OSS runs on,
+ * and the one the module's WebUI writes. Its templates are bare arrays, its
+ * hiding is per caller, and a system target stays visible unless the pair asks
+ * otherwise. */
+constexpr auto kNativeConfig = R"({
+  "version": 2,
+  "mode": "blacklist",
+  "hide_system": false,
+  "templates": {"social": ["com.example.tpl"]},
+  "apps": {
+    "com.example.caller": {
+      "hide": ["com.example.extra"],
+      "templates": ["social"]
+    },
+    "com.example.system": {
+      "hide_system": true,
+      "hide": ["com.example.target", "com.android.shell"]
+    },
+    "com.example.all": {"hide_all": true},
+    "com.example.white": {
+      "mode": "whitelist",
+      "hide": ["com.example.visible"]
+    }
+  }
+})";
+
+void test_native()
+{
+	const auto path = write_config("rules_native.json", kNativeConfig);
+	const auto rules = NativeRules::load(path);
+	if (!rules) {
+		std::fprintf(stderr,
+			     "rules: FAILED (native config did not load)\n");
+		++failures;
+		return;
+	}
+	check_name(uidfake::tool_name(rules->tool()), "uidfake",
+		   "native's place means native's format");
+	check(rules->uses_presets(), false, "native has no presets");
+
+	const Presets none;
+	const auto hides = [&](const char *caller, const char *target,
+			       bool system = false) {
+		return rules->hides(caller, target, system, none);
+	};
+
+	/* An unknown caller hides nothing, and a caller never hides itself. */
+	check(hides("com.example.other", "com.example.extra"), false,
+	      "native: unknown caller");
+	check(hides("com.example.caller", "com.example.caller"), false,
+	      "native: a caller never hides itself");
+
+	/* The hide list and the templates the caller applies. */
+	check(hides("com.example.caller", "com.example.extra"), true,
+	      "native: the hide list");
+	check(hides("com.example.caller", "com.example.tpl"), true,
+	      "native: an applied template");
+	check(hides("com.example.caller", "com.example.other"), false,
+	      "native: unlisted in blacklist mode");
+
+	/* A system target stays visible unless the pair turns hide_system on. */
+	check(hides("com.example.caller", "com.android.shell", true), false,
+	      "native: a system target is left alone by default");
+	check(hides("com.example.system", "com.example.target", true), true,
+	      "native: hide_system lets a system target be hidden");
+	check(hides("com.example.system", "com.example.target", false), true,
+	      "native: a user target is hidden the same way");
+
+	/* hide_all, and whitelist mode flipping what the list means. */
+	check(hides("com.example.all", "com.example.other"), true,
+	      "native: hide_all hides the unlisted");
+	check(hides("com.example.white", "com.example.other"), true,
+	      "native: whitelist hides the unlisted");
+	check(hides("com.example.white", "com.example.visible"), false,
+	      "native: whitelist keeps the listed visible");
+
+	/* A format this build does not know is refused, not guessed at. */
+	const auto future =
+		write_config("rules_native_future.json", "{\"version\":3}");
+	check(!NativeRules::load(future), true,
+	      "native: a newer format version is refused");
+	const auto not_object =
+		write_config("rules_native_array.json", "[1,2,3]");
+	check(!NativeRules::load(not_object), true,
+	      "native: a non-object config is refused");
+
+	std::filesystem::remove(path);
+	std::filesystem::remove(future);
+	std::filesystem::remove(not_object);
+}
+
 int main()
 {
 	test_user_ids();
 	test_preset_cache();
 	test_xposed_preset();
+	test_native();
 	const auto hma_path = write_config("rules_hma.json", kHmaConfig);
 	const auto oss_path = write_config("rules_oss.json", kHmaOssConfig);
 

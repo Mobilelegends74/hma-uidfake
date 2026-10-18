@@ -132,6 +132,77 @@ the running kernel's config (`/proc/config.gz`).
 - The timing a hidden uid still costs is measured, not assumed away: `src/tools/uidbench.c` samples
   the hidden, absent and unhooked cases in one round and reports paired deltas.
 
+## The module's own rules and the WebUI
+
+The rules do not have to come from HMA. The module has a format of its own, and the places a config
+can be are checked in a fixed order, the module's own file first:
+
+```
+/data/adb/hma-uidfake/config.json          the module's own (Native) -- checked first
+/data/adb/modules/hma-uidfake/config.json  the same, when a build keeps it in the module
+/data/user/0/com.tsng.hidemyapplist/files/config.json                                   HMA
+/data/misc|/data/system/hide_my_applist_*/config.json                                   HMA-OSS
+```
+
+The native file sits outside `/data/adb/modules/` on purpose: a module update replaces that tree, and
+a hide list is not something an update should carry away. Which format is read is a property of the
+path, and each format has its own class (`HmaRules`, `HmaOssRules`, `NativeRules`) behind one
+interface, so the rest of the tool does not know which one it is holding. The user-space side needs
+no Zygisk and no framework hook: it is the same process that already reads a config and pushes the
+pairs over `kaux`, and it only learned one more format to read.
+
+The native format is the one the WebUI writes:
+
+```json
+{
+  "version": 2,
+  "mode": "blacklist",
+  "hide_system": false,
+  "templates": {"social": ["com.a", "com.b"]},
+  "apps": {
+    "com.caller": {
+      "hide": ["com.target"],
+      "templates": ["social"],
+      "hide_all": false
+    }
+  }
+}
+```
+
+A caller hides its own `hide` list plus the union of the templates it applies. `mode` may be
+`whitelist`, which turns that set into the one that stays visible instead, and `hide_all` hides every
+app. A system target is left alone unless `hide_system` is on for the pair, because making the
+framework itself look absent breaks a device long before it hides an app. A caller never hides
+itself. A `version` newer than this tool knows is refused rather than read with a field missing,
+which is the failure this whole thing exists to avoid.
+
+The WebUI is served from `module/webroot/` by the KernelSU manager and decides nothing by itself:
+every read is one of `sync-tool --status`, `--packages`, `--get-config`, and every write is
+`--set-config`, so the page and the running policy cannot disagree about which format a file is in.
+Each command prints one JSON document on stdout and logs nothing there (the daemon's log goes to
+stderr), so the page reads a result, not a log. `--set-config` reads the document from stdin, checks
+it exactly as the reader would, writes it through a temporary file and a rename (keeping one `.bak`),
+and pushes it in the same step -- a config the daemon would refuse is never left on disk. On the
+device the page runs `sync-tool` through the manager's own `ksu.exec`, so nothing has to be a root
+shell over the network.
+
+The page is a home list over sub-screens: a card of kernel status, then Manage apps, Templates,
+Backup and restore, How it works, Settings and About. Manage apps is a searchable list of every
+installed app (filtered by user/system/with-a-rule), each row carrying a switch that adds or removes
+that app's rule; opening a row gives the rule's mode, its `hide_all` and `hide_system`, its own
+`hide` list and the templates it applies, drawn from the same app list. A template is a named list of
+apps, so renaming or deleting one follows through to every rule that references it -- a rule left
+pointing at a name that no longer exists would hide less than its author sees. Settings holds the
+theme and the module-wide `mode` and `hide_system`, which are the default for apps that do not
+override them.
+
+The screens follow the layout of the HMA-OSS app, because a user coming from it already knows these
+settings in that shape. Nothing is taken from it: HMA-OSS is AGPL-3.0 and this module is GPL-2.0, and
+its UI is Kotlin against Compose and Fragments rather than a page, so there is no code here to reuse
+even if the licences allowed it. What that app offers and a kernel-side uid guard cannot honour --
+icon and launcher hiding, per-hook switches, logs, an accessibility service -- is left out rather than
+shown as a switch that would do nothing.
+
 ## Protocol
 
 Little endian, defined once in `include/kaux.h`, which the module and the tool both include. The

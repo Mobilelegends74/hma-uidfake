@@ -2,8 +2,10 @@ name: build
 
 on:
   push:
-    branches: [build/android14-6.1-compat]
+    branches: [build/android14-6.1-compat, feature/webui-audited-build-v2]
     tags: ["v*"]
+  pull_request:
+    branches: [build/android14-6.1-compat]
   workflow_dispatch:
 
 jobs:
@@ -94,6 +96,12 @@ jobs:
           cmake -S . -B build \
             -DUG_NDK="${{ steps.ndk.outputs.ndk-path }}" \
             -DUG_USE_PREBUILT_KO=ON
+      - name: Validate WebUI JavaScript
+        run: |
+          set -euo pipefail
+          node --check module/webroot/app.js
+          grep -q -- '--get-config' src/tools/sync.cpp
+          grep -q -- '--set-config' src/tools/sync.cpp
       - name: Build and pack
         run: |
           set -euo pipefail
@@ -105,6 +113,15 @@ jobs:
           unzip -p "$zip" module.prop | grep -q '^version=0\.3\.3-audit+'
           unzip -Z1 "$zip" | grep -qx 'ko/android14-6.1_arm64_hma_uidfake.ko'
           unzip -p "$zip" post-fs-data.sh | grep -q 'allow_load'
+          unzip -p "$zip" service.sh | grep -q 'allow_load'
+          unzip -Z1 "$zip" | grep -qx 'webroot/index.html'
+          unzip -Z1 "$zip" | grep -qx 'webroot/app.js'
+          unzip -Z1 "$zip" | grep -qx 'webroot/style.css'
+          unzip -Z1 "$zip" | grep -qx 'load.sh'
+          if unzip -p "$zip" webroot/app.js | grep -q '/data/local/tmp/hma-uidfake-webui.json'; then
+            echo "Insecure temp config export present"
+            exit 1
+          fi
           unzip -p "$zip" service.sh | grep -q 'allow_load'
           if unzip -p "$zip" module.prop | grep -q '^updateJson='; then
             echo "External updater URL must not be present in audited test build"

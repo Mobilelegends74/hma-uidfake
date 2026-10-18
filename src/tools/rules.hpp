@@ -237,4 +237,66 @@ private:
   PresetFacts facts_;
 };
 
+/*
+ * The module's own format, so no other app has to be installed to decide who is
+ * hidden. This is the rule source a device without HMA/HMA-OSS runs on, and the
+ * one the module's WebUI writes.
+ *
+ *   {
+ *     "version": 2,
+ *     "mode": "blacklist",              // or "whitelist"
+ *     "hide_system": false,
+ *     "templates": { "social": ["com.a", "com.b"] },
+ *     "apps": {
+ *       "com.caller": {
+ *         "mode": "whitelist",          // optional, overrides the one above
+ *         "hide_system": true,          // optional, overrides the one above
+ *         "hide_all": false,
+ *         "hide": ["com.target"],
+ *         "templates": ["social"]
+ *       }
+ *     }
+ *   }
+ *
+ * A caller hides its own `hide` list plus the union of the templates it
+ * applies. In whitelist mode that list is what stays visible instead, and
+ * `hide_all` hides every app. A target that is a system app is left alone
+ * unless `hide_system` is on for the pair, because making the framework itself
+ * look absent is what breaks a device rather than hides an app.
+ */
+class NativeRules final : public Rules {
+public:
+  [[nodiscard]] static std::unique_ptr<NativeRules>
+  load(const std::filesystem::path &path);
+
+  NativeRules(nlohmann::json config, std::filesystem::path path);
+
+  [[nodiscard]] Pairs expand(const PackageDb &packages,
+                             const Presets &presets) const override;
+  [[nodiscard]] bool hides(std::string_view caller, std::string_view target,
+                           bool target_is_system,
+                           const Presets &presets) const override;
+
+  /* The entry of one caller, or nullptr; the WebUI reads a caller's list back
+   * through this. */
+  [[nodiscard]] const nlohmann::json *entry(std::string_view caller) const;
+  [[nodiscard]] std::string_view mode() const { return mode_; }
+  [[nodiscard]] bool hide_system() const { return hide_system_; }
+
+private:
+  /* The decision for one pair, from an entry that was already looked up. */
+  [[nodiscard]] bool hides_target(const nlohmann::json &entry,
+                                  std::string_view target,
+                                  bool target_is_system) const;
+
+  /* Is the target on this caller's list -- its `hide` list plus the array of
+   * every template it applies? */
+  [[nodiscard]] bool on_list(const nlohmann::json &entry,
+                             std::string_view target) const;
+
+  const nlohmann::json *apps_ = nullptr; /* points into config_ */
+  std::string mode_ = "blacklist";
+  bool hide_system_ = false;
+};
+
 } // namespace uidfake

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.3-audit WebUI build (October 2026; not upstream 0.4.0)
+
+- Port independently maintained WebUI frontend, own rule configuration and sync-tool JSON commands from SHuiTU68/hma-uidfake to the last audited Android14-6.1 Action base.
+- No change to 0.3.3 kernel hooks. This is NOT a reconstruction of the closed 0.4.0 kernel module.
+- Eliminate plaintext temporary export of standalone rules under /data/local/tmp; send base64-decoded JSON into sync-tool stdin.
+- Confirm before creating standalone rules when HMA or HMA-OSS is the active source; standalone rules take precedence.
+- Preserve opt-in boot gate /data/adb/hma-uidfake/allow_load and upstream-update URL removal.
+- Import the auditable, shell-only loader preference from owner-supplied 0.4.0 archive: installed ksud insmod first, bundled lkmloader otherwise.
+- Runtime testing on the owner's device and a verified backup/recovery path remain required.
+
 ## 0.3.3
 
 - The tool reads the package database whichever form it is written in. Android 12 introduced the

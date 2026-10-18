@@ -1,0 +1,676 @@
+/*
+ * The WebUI's look: a home list over sub-screens, app rows with a leading
+ * avatar and a trailing switch, cards for settings groups, a bottom sheet for
+ * anything that needs a decision. Deliberately small -- it is a settings screen
+ * on a phone, not a document.
+ *
+ * Colours are tokens so the whole page follows the system theme, and the theme
+ * can also be pinned from Settings (data-theme on <html>).
+ */
+
+:root {
+  --bg: #f7f7fb;
+  --surface: #ffffff;
+  --surface-2: #eeeef6;
+  --outline: #e0e0ea;
+  --text: #1a1a22;
+  --dim: #5c5c6b;
+  --primary: #4f56d8;
+  --primary-ink: #ffffff;
+  --primary-soft: #e6e7fb;
+  --danger: #c02c3c;
+  --ok: #1f8a4c;
+  --shadow: 0 1px 2px rgba(20, 20, 40, 0.06), 0 8px 24px rgba(20, 20, 40, 0.06);
+  --radius: 16px;
+  --row: 64px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101015;
+    --surface: #1a1a22;
+    --surface-2: #23232e;
+    --outline: #2e2e3b;
+    --text: #e8e8f0;
+    --dim: #9d9daf;
+    --primary: #a8aaff;
+    --primary-ink: #151522;
+    --primary-soft: #26263c;
+    --danger: #ff8a95;
+    --ok: #6fd39a;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.3);
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #101015;
+  --surface: #1a1a22;
+  --surface-2: #23232e;
+  --outline: #2e2e3b;
+  --text: #e8e8f0;
+  --dim: #9d9daf;
+  --primary: #a8aaff;
+  --primary-ink: #151522;
+  --primary-soft: #26263c;
+  --danger: #ff8a95;
+  --ok: #6fd39a;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+.mono {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* ---- app bar ---- */
+
+.appbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 56px;
+  padding: 4px 6px;
+  padding-top: env(safe-area-inset-top);
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid transparent;
+}
+
+.appbar.bordered {
+  border-bottom-color: var(--outline);
+}
+
+.appbar h1 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 19px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.appbar .lead-title {
+  font-size: 22px;
+}
+
+.icon-btn {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.icon-btn:active {
+  background: var(--surface-2);
+}
+
+.icon-btn svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* ---- layout ---- */
+
+.screen {
+  padding: 4px 12px 112px;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.hero {
+  padding: 8px 4px 16px;
+}
+
+.hero h2 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.hero p {
+  margin: 6px 0 0;
+  color: var(--dim);
+  font-size: 13px;
+}
+
+.section-title {
+  margin: 20px 8px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.note {
+  margin: 10px 8px 0;
+  color: var(--dim);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* ---- card + list ---- */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--outline);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.card + .card {
+  margin-top: 12px;
+}
+
+.card.pad {
+  padding: 14px 16px;
+}
+
+.list > * + * {
+  border-top: 1px solid var(--outline);
+}
+
+/* ---- row ---- */
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: var(--row);
+  padding: 10px 14px;
+  background: none;
+  border: 0;
+  width: 100%;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.row.clickable {
+  cursor: pointer;
+}
+
+.row.clickable:active {
+  background: var(--surface-2);
+}
+
+.row.clickable:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+.row .lead {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--dim);
+  font-weight: 600;
+  font-size: 15px;
+  overflow: hidden;
+}
+
+.row .lead svg {
+  width: 20px;
+  height: 20px;
+}
+
+.row .main {
+  flex: 1;
+  min-width: 0;
+}
+
+.row .title {
+  font-size: 15px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.row .sub {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.row .trail {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--dim);
+}
+
+.row .trail svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* ---- bits ---- */
+
+.badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 700;
+  vertical-align: 1px;
+}
+
+.badge.dim {
+  background: var(--surface-2);
+  color: var(--dim);
+}
+
+.badge.bad {
+  background: color-mix(in srgb, var(--danger) 18%, transparent);
+  color: var(--danger);
+}
+
+.badge.ok {
+  background: color-mix(in srgb, var(--ok) 18%, transparent);
+  color: var(--ok);
+}
+
+.kv {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 7px 0;
+  font-size: 13px;
+}
+
+.kv .k {
+  color: var(--dim);
+}
+
+.kv .v {
+  text-align: right;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.empty {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--dim);
+  font-size: 14px;
+}
+
+/* ---- switch ---- */
+
+.switch {
+  flex: none;
+  position: relative;
+  display: inline-block;
+  width: 46px;
+  height: 28px;
+}
+
+.switch input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.switch i {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--outline);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.switch i::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--dim);
+  transition: transform 0.15s, background 0.15s;
+}
+
+.switch input:checked + i {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.switch input:checked + i::after {
+  transform: translateX(18px);
+  background: var(--primary-ink);
+}
+
+/* ---- buttons ---- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--primary-ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.btn.tonal {
+  background: var(--surface);
+  border-color: var(--outline);
+  color: var(--text);
+}
+
+.btn.text {
+  background: none;
+  color: var(--primary);
+  padding: 0 12px;
+}
+
+.btn.danger {
+  background: none;
+  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
+  color: var(--danger);
+}
+
+.btn:active {
+  filter: brightness(0.95);
+}
+
+.btn[disabled] {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.btnrow {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.btnrow .btn {
+  flex: 1;
+}
+
+.actionbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 15;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  background: color-mix(in srgb, var(--bg) 90%, transparent);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid var(--outline);
+}
+
+.actionbar .btn {
+  max-width: 340px;
+  flex: 1;
+}
+
+/* ---- search + chips ---- */
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0 10px;
+  padding: 0 14px;
+  min-height: 48px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--outline);
+}
+
+.search svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  color: var(--dim);
+}
+
+.search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  outline: none;
+}
+
+.chiprow {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 2px 0 10px;
+  scrollbar-width: none;
+}
+
+.chiprow::-webkit-scrollbar {
+  display: none;
+}
+
+.chip {
+  flex: none;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--outline);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.chip[aria-pressed="true"] {
+  background: var(--primary-soft);
+  border-color: transparent;
+  color: var(--primary);
+  font-weight: 600;
+}
+
+/* ---- segmented ---- */
+
+.segmented {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+
+.segmented button {
+  flex: 1;
+  min-height: 36px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--dim);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.segmented button[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: var(--shadow);
+}
+
+/* ---- fields ---- */
+
+textarea.field {
+  width: 100%;
+  min-height: 220px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--outline);
+  background: var(--surface);
+  color: var(--text);
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  resize: vertical;
+  outline: none;
+}
+
+input.field {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid var(--outline);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  outline: none;
+}
+
+/* ---- overlay: sheet, snackbar, spinner ---- */
+
+.dialog-root {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.sheet {
+  width: 100%;
+  max-width: 560px;
+  max-height: 86vh;
+  overflow-y: auto;
+  padding: 8px 16px calc(20px + env(safe-area-inset-bottom));
+  background: var(--surface);
+  border-radius: 24px 24px 0 0;
+}
+
+.sheet .grabber {
+  width: 36px;
+  height: 4px;
+  margin: 8px auto 12px;
+  border-radius: 999px;
+  background: var(--outline);
+}
+
+.sheet h3 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+
+.sheet p {
+  margin: 0 0 12px;
+  color: var(--dim);
+  font-size: 13px;
+}
+
+.snackbar {
+  position: fixed;
+  left: 50%;
+  bottom: calc(88px + env(safe-area-inset-bottom));
+  z-index: 50;
+  transform: translateX(-50%);
+  max-width: calc(100% - 32px);
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 13px;
+  box-shadow: var(--shadow);
+}
+
+.snackbar.bad {
+  background: var(--danger);
+  color: #fff;
+}
+
+.busy {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--bg) 55%, transparent);
+}
+
+.spinner {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid var(--outline);
+  border-top-color: var(--primary);
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -549,4 +549,115 @@ Pairs HmaOssRules::expand(const PackageDb &packages,
   return pairs;
 }
 
+NativeRules::NativeRules(nlohmann::json config, std::filesystem::path path)
+    : Rules(Tool::Native, std::move(config), std::move(path)) {
+  if (const auto it = config_.find("apps");
+      it != config_.end() && it->is_object())
+    apps_ = &*it;
+  mode_ = config_.value("mode", std::string{"blacklist"});
+  hide_system_ = config_.value("hide_system", false);
+}
+
+std::unique_ptr<NativeRules>
+NativeRules::load(const std::filesystem::path &path) {
+  auto config = read_json(path);
+  if (!config || !config->is_object()) {
+    if (config)
+      Log::warn("{} is not a JSON object", path.string());
+    return nullptr;
+  }
+  /*
+   * A format this build does not know is refused and not guessed at: a config
+   * written for a newer layout would otherwise hide a different set than the
+   * one its author sees, and a hide list that is off by a field is the failure
+   * this whole thing exists to avoid.
+   */
+  const int version = config->value("version", 2);
+  if (version > 2) {
+    Log::warn("{}: format version {} is newer than this tool knows ({})",
+              path.string(), version, 2);
+    return nullptr;
+  }
+  return std::make_unique<NativeRules>(std::move(*config), path);
+}
+
+bool NativeRules::on_list(const nlohmann::json &entry,
+                          std::string_view target) const {
+  if (const auto *hide = find_array(entry, "hide");
+      hide != nullptr && in_list(*hide, target))
+    return true;
+
+  const auto *applied = find_array(entry, "templates");
+  if (applied == nullptr)
+    return false;
+  for (const auto &name : *applied) {
+    if (!name.is_string())
+      continue;
+    const auto *tpl = template_entry(name.get_ref<const std::string &>());
+    /* A native template is the array itself, not an object with an appList. */
+    if (tpl != nullptr && tpl->is_array() && in_list(*tpl, target))
+      return true;
+  }
+  return false;
+}
+
+bool NativeRules::hides_target(const nlohmann::json &entry,
+                               std::string_view target,
+                               bool target_is_system) const {
+  const bool hide_system = entry.value("hide_system", hide_system_);
+  /*
+   * A system app is left visible unless the config asks otherwise. Hiding the
+   * framework's own packages makes the device look broken long before it makes
+   * an app look absent, and the pair is almost never what a user wants.
+   */
+  if (target_is_system && !hide_system)
+    return false;
+
+  const std::string mode = entry.value("mode", mode_);
+  const bool whitelist = mode == "whitelist";
+  if (!whitelist && entry.value("hide_all", false))
+    return true;
+
+  const bool listed = on_list(entry, target);
+  return whitelist ? !listed : listed;
+}
+
+const nlohmann::json *NativeRules::entry(std::string_view caller) const {
+  if (apps_ == nullptr)
+    return nullptr;
+  const auto it = apps_->find(std::string{caller});
+  return it == apps_->end() ? nullptr : &*it;
+}
+
+bool NativeRules::hides(std::string_view caller, std::string_view target,
+                        bool target_is_system, const Presets &) const {
+  /* A caller never hides itself, whatever a config says: the kernel's own
+   * self-check and the meaning of a pair both assume it. */
+  if (caller == target)
+    return false;
+  const auto *caller_rules = entry(caller);
+  if (caller_rules == nullptr)
+    return false;
+  return hides_target(*caller_rules, target, target_is_system);
+}
+
+Pairs NativeRules::expand(const PackageDb &packages, const Presets &) const {
+  Pairs pairs;
+  std::size_t callers = 0;
+
+  if (apps_ != nullptr)
+    for (const auto &[caller, caller_rules] : apps_->items()) {
+      append_pairs(
+          pairs, packages, caller,
+          [&](std::string_view target, std::uint32_t, bool target_is_system) {
+            return hides_target(caller_rules, target, target_is_system);
+          });
+      ++callers;
+    }
+
+  dedupe(pairs);
+  log_summary(callers, pairs);
+  return pairs;
+}
+
 } // namespace uidfake

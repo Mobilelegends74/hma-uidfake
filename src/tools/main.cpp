@@ -26,6 +26,21 @@ int main(int argc, char **argv) {
       syncer.explain(config->explain->first, config->explain->second);
       return 0;
     }
+    /* The WebUI's commands print one JSON document and exit. */
+    if (config->status) {
+      syncer.print_status();
+      return 0;
+    }
+    if (config->list_packages) {
+      syncer.print_packages();
+      return 0;
+    }
+    if (config->get_config) {
+      syncer.print_config();
+      return 0;
+    }
+    if (config->set_config)
+      return syncer.set_config() ? 0 : 1;
     return syncer.run() ? 0 : 1;
   } catch (const std::exception &e) {
     std::fprintf(stderr, "sync-tool: %s\n", e.what());
