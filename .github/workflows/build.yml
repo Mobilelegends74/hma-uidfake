@@ -142,7 +142,7 @@ jobs:
             exit 1
           fi
           unzip -p "$zip" service.sh | grep -q 'uidfake_load'
-          unzip -p "$zip" module.prop | grep -q '^version=0[.]3[.]4-audit+'
+          if unzip -p "$zip" module.prop | grep -q '^updateJson='; then
             echo "External updater URL must not be present in audited test build"
             exit 1
           fi
