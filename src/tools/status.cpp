@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <optional>
 #include <string>
 #include <vector>
@@ -26,15 +27,19 @@ std::filesystem::path module_dir() {
   return self.parent_path();
 }
 
-/* The description without the status this tool put in front of it earlier. */
-std::string strip_status(const std::string &line) {
-  if (line.empty() || line[0] != '[')
-    return line;
-  const auto close = line.find("] ");
-
-  if (close == std::string::npos)
-    return line;
-  return line.substr(close + 2);
+/* KernelSU module list gets a plain, localized status, not a diagnostic log.
+ * The installer's locale.js holds "ru" or "en" and is safe to read as text.
+ * No user-created or HMA policy files are inspected for this UI choice. */
+std::string card_description(const std::filesystem::path &dir,
+                             bool working) {
+  std::ifstream language{dir / "webroot" / "locale.js"};
+  const std::string data{std::istreambuf_iterator<char>{language},
+                         std::istreambuf_iterator<char>{}};
+  const bool russian = data.find("HMA_UIDFAKE_INSTALL_LOCALE = \"ru\"") !=
+                       std::string::npos;
+  if (russian)
+    return working ? "✅ Работает" : "❌ Не работает";
+  return working ? "✅ Working" : "❌ Not working";
 }
 
 /* One config line's value, or empty. */
@@ -89,12 +94,6 @@ DeviceGeometry read_device_config() {
 }
 
 void report_status(std::string_view text) {
-  static std::string last;
-  const std::string wanted(text);
-
-  if (wanted == last)
-    return; /* the line would not change */
-
   const auto dir = module_dir();
   if (dir.empty())
     return;
@@ -104,27 +103,24 @@ void report_status(std::string_view text) {
   if (!in)
     return;
 
+  const std::string wanted = card_description(dir, text == "working");
   std::vector<std::string> lines;
   std::string line;
   bool touched = false;
 
   while (std::getline(in, line)) {
     if (line.rfind("description=", 0) == 0) {
-      const auto rest = strip_status(line.substr(12));
-      std::string rebuilt = "description=";
-      if (!wanted.empty()) {
-        rebuilt += '[';
-        rebuilt += wanted;
-        rebuilt += "] ";
+      const std::string replacement = "description=" + wanted;
+      if (line != replacement) {
+        line = replacement;
+        touched = true;
       }
-      line = rebuilt + rest;
-      touched = true;
     }
     lines.push_back(line);
   }
   in.close();
   if (!touched)
-    return;
+    return; /* do not rewrite module.prop when the status did not change */
 
   const auto tmp = dir / "module.prop.tmp";
   {
@@ -136,11 +132,8 @@ void report_status(std::string_view text) {
   }
   std::error_code ec;
   std::filesystem::rename(tmp, prop, ec);
-  if (ec) {
+  if (ec)
     Log::warn("could not update {}: {}", prop.string(), ec.message());
-    return;
-  }
-  last = wanted;
 }
 
 } // namespace uidfake

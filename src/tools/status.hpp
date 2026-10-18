@@ -7,13 +7,10 @@
 namespace uidfake {
 
 /*
- * What the module says about itself where a user will see it: the description
- * line of module.prop, which is what the KernelSU and Magisk module lists show.
- * The text goes in front of the description that is already there, in brackets,
- * so the module goes on saying what it is while saying how it is doing.
- *
- * Nothing happens when there is no module.prop beside the running binary: the
- * tool is also built and run on a build host.
+ * KernelSU/Magisk description is only a live status: Working / Not working,
+ * localized using the Android system locale saved by the module installer.
+ * Detailed hook/rule/error counts remain available through sync-tool --status.
+ * No operation takes place when module.prop does not exist next to the binary.
  */
 void report_status(std::string_view text);
 

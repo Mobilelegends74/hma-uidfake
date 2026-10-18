@@ -75,6 +75,17 @@ constexpr std::size_t kApkLimit = 10000;
   return line;
 }
 
+/* Public module-list status is intentionally binary and short. A loaded kernel
+ * with a live policy and UID hooks reports 'working'; diagnostics stay in WebUI.
+ * 0 active pairs does not hide anything yet, so it reports 'not working'. */
+[[nodiscard]] bool active_kernel_policy(NetlinkClient &client) {
+  const auto st = client.status();
+  return st && st->policy_pairs > 0 && st->native > 0 &&
+         (st->lsm_state == KAUX_LSM_TAKEN ||
+          st->lsm_state == KAUX_LSM_FALLBACK) &&
+         st->apk_failed == 0;
+}
+
 [[nodiscard]] bool dir_matches(std::string_view leaf, std::string_view pkg) {
   return leaf.size() > pkg.size() && leaf.compare(0, pkg.size(), pkg) == 0 &&
          leaf[pkg.size()] == '-';
@@ -204,7 +215,7 @@ void Syncer::sync_now(std::string_view why) {
     if (!config_refused_) {
       config_refused_ = true;
       Log::warn("no readable rule source yet (keeping the previous policy)");
-      report_status("waiting for a rule config");
+      report_status("not working");
     }
     return;
   }
@@ -278,7 +289,7 @@ void Syncer::sync_now(std::string_view why) {
     }
     pushed_.assign(pairs.begin(), pairs.end());
     Log::info("synced {} pair(s) ({})", pairs.size(), why);
-    report_status(status_line(netlink_, pairs.size()));
+    report_status(active_kernel_policy(netlink_) ? "working" : "not working");
   }
 
   std::set<std::uint32_t> caller_uids;
@@ -424,7 +435,7 @@ void Syncer::publish_code_dirs() {
   }
   published_.assign(entries.begin(), entries.end());
   /* the apk side moved, so the line a user reads has to move with it */
-  report_status(status_line(netlink_, pushed_.size()));
+  report_status(active_kernel_policy(netlink_) ? "working" : "not working");
 }
 
 void Syncer::handle_packages(const std::vector<std::string> &dirs) {

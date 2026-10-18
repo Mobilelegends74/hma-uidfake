@@ -9,6 +9,19 @@ SYS_LOCALE="$(getprop persist.sys.locale 2>/dev/null)"
 [ -n "$SYS_LOCALE" ] || SYS_LOCALE="$(getprop persist.sys.language 2>/dev/null)"
 [ -n "$SYS_LOCALE" ] || SYS_LOCALE="$(getprop ro.product.locale 2>/dev/null)"
 [ -n "$SYS_LOCALE" ] || SYS_LOCALE="$(getprop ro.product.locale.language 2>/dev/null)"
+# Prefer Android's active configuration when available. On some vendor ROMs,
+# persist.sys.locale may be empty or stale, while 'am get-config' reflects
+# the language currently used by the system UI (e.g. ru-rRU).
+ACTIVE_CONFIG_LOCALE="$(am get-config 2>/dev/null | grep '^config:' | grep -oE '[a-z]{2}-r[A-Z]{2}' | head -n1)"
+if [ -n "$ACTIVE_CONFIG_LOCALE" ]; then
+  SYS_LOCALE="$ACTIVE_CONFIG_LOCALE"
+else
+  SETTINGS_LOCALE="$(settings get system system_locales 2>/dev/null)"
+  case "$SETTINGS_LOCALE" in
+    ""|null|undefined) ;;
+    *) SYS_LOCALE="$SETTINGS_LOCALE" ;;
+  esac
+fi
 SYS_LOCALE="${SYS_LOCALE%%,*}"
 case "$SYS_LOCALE" in
   ru|ru-*|ru_*) UI_LOCALE=ru ;;
