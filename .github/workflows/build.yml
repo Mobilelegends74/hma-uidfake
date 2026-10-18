@@ -2,7 +2,7 @@ name: build
 
 on:
   push:
-    branches: [build/android14-6.1-compat, feature/webui-audited-build-v2]
+    branches: [main, build/android14-6.1-compat, feature/webui-audited-build-v2, feature/ru-en-webui-fork-readme]
     tags: ["v*"]
   pull_request:
     branches: [build/android14-6.1-compat]
@@ -112,6 +112,8 @@ jobs:
         run: |
           set -euo pipefail
           node --check module/webroot/app.js
+          node --check module/webroot/i18n.js
+          node scripts/test-webui-i18n.cjs
           grep -q -- '--get-config' src/tools/sync.cpp
           grep -q -- '--set-config' src/tools/sync.cpp
       - name: Build and pack
@@ -122,7 +124,7 @@ jobs:
           zip=$(find build/dist -maxdepth 1 -name '*.zip' -type f -print -quit)
           test -n "$zip"
           unzip -t "$zip"
-          unzip -p "$zip" module.prop | grep -q '^version=0[.]3[.]4-audit+'
+          unzip -p "$zip" module.prop | grep -q '^version=0[.]3[.]5-fork+'
           for kmi in android12-5.10 android13-5.10 android13-5.15 android14-5.15 android14-6.1 android15-6.6 android16-6.12 android17-6.18; do
             unzip -Z1 "$zip" | grep -qx "ko/${kmi}_arm64_hma_uidfake.ko"
           done
@@ -131,6 +133,64 @@ jobs:
           unzip -p "$zip" service.sh | grep -q 'uidfake_load'
           unzip -Z1 "$zip" | grep -qx 'webroot/index.html'
           unzip -Z1 "$zip" | grep -qx 'webroot/app.js'
+          unzip -Z1 "$zip" | grep -qx 'webroot/i18n.js'
+          unzip -Z1 "$zip" | grep -qx 'webroot/locale.js'
+          unzip -p "$zip" module.prop | grep -q '^name=HMA UID Fake fork
+          unzip -Z1 "$zip" | grep -qx 'webroot/style.css'
+          unzip -Z1 "$zip" | grep -qx 'load.sh'
+          if unzip -p "$zip" post-fs-data.sh | grep -q allow_load; then
+            echo "Manual activation requirement must not exist"
+            exit 1
+          fi
+          if unzip -p "$zip" webroot/app.js | grep -q '/data/local/tmp/hma-uidfake-webui.json'; then
+            echo "Insecure temp config export present"
+            exit 1
+          fi
+          unzip -p "$zip" service.sh | grep -q 'uidfake_load'
+          if unzip -p "$zip" module.prop | grep -q '^updateJson='; then
+            echo "External updater URL must not be present in audited test build"
+            exit 1
+          fi
+          sha256sum "$zip"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: module-zip
+          path: build/dist/*.zip
+          # Without this the zip is put inside an archive of the artifact's own,
+          # so what a user downloads is a zip holding the module zip. With it the
+          # artifact carries the file's name, not the `name:` above.
+          archive: false
+      - name: Write update.json
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          set -euo pipefail
+          zip=$(ls build/dist/*.zip)
+          # The packed module.prop already carries what this build computed, so the JSON cannot
+          # disagree with the module it describes.
+          version=$(unzip -p "$zip" module.prop | sed -n 's/^version=//p')
+          code=$(unzip -p "$zip" module.prop | sed -n 's/^versionCode=//p')
+          tag="${{ github.ref_name }}"
+          asset=$(basename "$zip")
+          changelog="https://raw.githubusercontent.com/${{ github.repository }}/$tag/CHANGELOG.md"
+          grep -qF "${version%%+*}" CHANGELOG.md ||
+            { echo "CHANGELOG.md has no entry for $version"; exit 1; }
+          cat > build/dist/update.json <<JSON
+          {
+            "version": "$version",
+            "versionCode": $code,
+            "zipUrl": "https://github.com/${{ github.repository }}/releases/download/$tag/$asset",
+            "changelog": "$changelog"
+          }
+          JSON
+          cat build/dist/update.json
+      - uses: softprops/action-gh-release@v3
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          files: build/dist/*
+          generate_release_notes: true
+      # module.prop points updateJson at releases/latest/download/update.json, so it is this
+      # asset -- not a file in the repository -- that the module manager reads.
+
           unzip -Z1 "$zip" | grep -qx 'webroot/style.css'
           unzip -Z1 "$zip" | grep -qx 'load.sh'
           if unzip -p "$zip" post-fs-data.sh | grep -q allow_load; then

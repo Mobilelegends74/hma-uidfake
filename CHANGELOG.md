@@ -1,3 +1,11 @@
+## 0.3.5-fork (October 2026 — bilingual WebUI and fork branding)
+
+- Russian and English WebUI: locale is detected from Android system settings during installation, not from KernelSU manager language; browser fallback for source previews.
+- Translate application list, templates, per-app rules, settings, status, dialog and error messages, About and help while preserving JSON schema and identifiers.
+- Change module name to **HMA UID Fake fork** and fix Source link to the maintained Mobilelegends74 repository.
+- Handle longer Russian labels without truncation. Add English/Russian smoke tests for locale selection.
+- Kernel hooks and HMA/HMA-OSS synchronization are unchanged compared to 0.3.4-audit.
+
 ## 0.3.4-audit (October 2026; multi-KMI WebUI + automatic startup)
 
 - Fix WebUI falsely showing 0 rules: extend kaux protocol v4 status to include the actual live RCU policy-pair count.

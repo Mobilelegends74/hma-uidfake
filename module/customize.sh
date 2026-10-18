@@ -1,7 +1,27 @@
 #!/system/bin/sh
 SKIPUNZIP=0
 
-ui_print "- HMA UID Fake"
+ui_print "- HMA UID Fake fork"
+
+# Read Android system language at install time (independent from manager locale).
+SYS_LOCALE="$(getprop persist.sys.locale 2>/dev/null)"
+[ -n "$SYS_LOCALE" ] || SYS_LOCALE="$(getprop persist.sys.locales 2>/dev/null)"
+[ -n "$SYS_LOCALE" ] || SYS_LOCALE="$(getprop persist.sys.language 2>/dev/null)"
+[ -n "$SYS_LOCALE" ] || SYS_LOCALE="$(getprop ro.product.locale 2>/dev/null)"
+[ -n "$SYS_LOCALE" ] || SYS_LOCALE="$(getprop ro.product.locale.language 2>/dev/null)"
+SYS_LOCALE="${SYS_LOCALE%%,*}"
+case "$SYS_LOCALE" in
+  ru|ru-*|ru_*) UI_LOCALE=ru ;;
+  *) UI_LOCALE=en ;;
+esac
+if [ -d "$MODPATH/webroot" ]; then
+  printf 'window.HMA_UIDFAKE_INSTALL_LOCALE = "%s";\n' "$UI_LOCALE" > "$MODPATH/webroot/locale.js"
+fi
+if [ "$UI_LOCALE" = ru ]; then
+  ui_print "- WebUI: русский (системный язык Android)"
+else
+  ui_print "- WebUI: English (Android system language)"
+fi
 
 # 6.1.138-android14-11-g0c3559bcd85-ab14529422 -> android14-6.1
 # The branch and the kernel version are two different things: the "11" in "android14-11" is a KMI
@@ -67,7 +87,14 @@ for f in "$MODPATH"/*.sh; do chmod 0755 "$f"; done
 [ -f "$MODPATH/sync-tool" ] && chmod 0755 "$MODPATH/sync-tool"
 [ -f "$MODPATH/lkmloader" ] && chmod 0755 "$MODPATH/lkmloader"
 
-ui_print "- Compatible kernels load automatically on the normal reboot after installation."
-ui_print "- No manual allow_load marker is required."
-ui_print "- To disable next boot: su -c 'touch /data/adb/hma-uidfake/disable_load'"
-ui_print "- Done"
+if [ "$UI_LOCALE" = ru ]; then
+  ui_print "- Автозагрузка после одной обычной перезагрузки."
+  ui_print "- Ручная активация allow_load не требуется."
+  ui_print "- Отключение: su -c 'touch /data/adb/hma-uidfake/disable_load'"
+  ui_print "- Готово"
+else
+  ui_print "- Compatible kernels load automatically after the normal reboot."
+  ui_print "- No manual allow_load marker is required."
+  ui_print "- To disable next boot: su -c 'touch /data/adb/hma-uidfake/disable_load'"
+  ui_print "- Done"
+fi

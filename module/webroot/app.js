@@ -21,7 +21,7 @@
 const MODULE_DIR = "/data/adb/modules/hma-uidfake";
 const TOOL = MODULE_DIR + "/sync-tool";
 const THEME_KEY = "hma-uidfake.theme";
-const REPO_URL = "https://github.com/SHuiTU68/hma-uidfake";
+const REPO_URL = "https://github.com/Mobilelegends74/hma-uidfake";
 
 /* ---- talking to sync-tool ---- */
 
@@ -211,14 +211,14 @@ function $(id) {
 function el(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
-  if (text != null) node.textContent = text;
+  if (text != null) node.textContent = t(text);
   return node;
 }
 
 let snackTimer = null;
 function toast(message, kind) {
   const box = $("snackbar");
-  box.textContent = message;
+  box.textContent = t(message);
   box.className = "snackbar" + (kind ? " " + kind : "");
   if (snackTimer) clearTimeout(snackTimer);
   snackTimer = setTimeout(() => box.classList.add("hidden"), 2800);
@@ -237,7 +237,7 @@ async function guard(label, fn) {
   try {
     await fn();
   } catch (e) {
-    toast(label + ": " + e.message, "bad");
+    toast(t(label) + ": " + t(e.message), "bad");
   } finally {
     busy(false);
   }
@@ -320,7 +320,7 @@ function searchBar(value, placeholder, onInput) {
   const input = document.createElement("input");
   input.type = "search";
   input.value = value || "";
-  input.placeholder = placeholder;
+  input.placeholder = t(placeholder);
   input.addEventListener("input", () => onInput(input.value));
   box.append(input);
   return box;
@@ -347,7 +347,7 @@ function row(opts) {
   const main = el("div", "main");
   const title = el("div", "title");
   if (Array.isArray(opts.title)) title.append(...opts.title);
-  else title.textContent = opts.title || "";
+  else title.textContent = t(opts.title || "");
   main.append(title);
   if (opts.sub) {
     const sub = el("div", "sub" + (opts.subMono ? " mono" : ""), opts.sub);
@@ -409,7 +409,7 @@ async function persist() {
   const previous = state.status && state.status.source;
   if (!standaloneAccepted && previous && previous !== "none" && previous !== "native") {
     if (!window.confirm(
-      "Saving will create an independent UID policy. It takes priority over the HMA/HMA-OSS config. Continue?"
+      t("Saving will create an independent UID policy. It takes priority over the HMA/HMA-OSS config. Continue?")
     )) {
       throw new Error("Independent policy change cancelled");
     }
@@ -451,7 +451,7 @@ async function load() {
     state.status = status;
     state.packages = packages.ok ? packages.packages || [] : [];
     state.config = normalize(config.config || {});
-    state.failed = packages.ok ? null : "install: package list unavailable";
+    state.failed = packages.ok ? null : t("install: package list unavailable");
     api.version().then((v) => {
       state.version = v;
       /* The version arrives after the first paint; the two screens that show it
@@ -488,7 +488,7 @@ function render() {
   if (!isHome) {
     const b = el("button", "icon-btn");
     b.type = "button";
-    b.title = "Back";
+    b.title = t("Back");
     b.append(icon("back"));
     b.addEventListener("click", back);
     bar.append(b);
@@ -498,7 +498,7 @@ function render() {
   for (const a of actions) {
     const b = el("button", "icon-btn");
     b.type = "button";
-    b.title = a.title;
+    b.title = t(a.title);
     b.append(icon(a.icon));
     b.addEventListener("click", a.onClick);
     bar.append(b);
@@ -537,7 +537,7 @@ function render() {
 function titleFor(s) {
   switch (s.screen) {
     case "home":
-      return "HMA UID Fake";
+      return "HMA UID Fake fork";
     case "apps":
       return "Manage apps";
     case "app":
@@ -559,7 +559,7 @@ function titleFor(s) {
     case "help":
       return "How it works";
     default:
-      return "HMA UID Fake";
+      return "HMA UID Fake fork";
   }
 }
 
@@ -580,7 +580,7 @@ function actionsFor(s) {
 
 function viewHome(body) {
   const hero = el("div", "hero");
-  hero.append(el("h2", null, "HMA UID Fake"));
+  hero.append(el("h2", null, "HMA UID Fake fork"));
   hero.append(
     el("p", null, "Kernel-side uid guard. Apps you hide here look uninstalled."),
   );
@@ -686,12 +686,12 @@ function statusCard() {
   box.append(kv("Rule source", st.source === "none" ? "none (idle)" : st.source));
   if (st.kernel) {
     box.append(
-      kv("Syscall hooks", st.kernel.native + " native, " + st.kernel.compat + " compat"),
+      kv("Syscall hooks", st.kernel.native + " " + t("native") + ", " + st.kernel.compat + " " + t("compat")),
     );
     box.append(kv("APK inodes", String(st.kernel.apk_inodes)));
     if (st.kernel.summary) box.append(kv("Summary", st.kernel.summary));
   }
-  box.append(kv("Config", st.config + (st.config_present ? "" : " (absent)")));
+  box.append(kv("Config", st.config + (st.config_present ? "" : t(" (absent)"))));
   return box;
 }
 
@@ -858,9 +858,9 @@ function viewApp(body, pkg) {
   modeCard.append(seg);
   modeCard.append(
     note(
-      "Default follows the module-wide mode (" +
-        state.config.mode +
-        "). Blacklist hides what is listed; whitelist hides everything except what is listed.",
+      t("Default follows the module-wide mode (") +
+        t(state.config.mode === "blacklist" ? "Blacklist" : "Whitelist") +
+        t("). Blacklist hides what is listed; whitelist hides everything except what is listed."),
     ),
   );
   body.append(modeCard);
@@ -995,7 +995,7 @@ function newTemplate() {
     title: "New template",
     body: (wrap) => {
       const input = el("input", "field");
-      input.placeholder = "name, e.g. banking";
+      input.placeholder = t("name, e.g. banking");
       wrap.append(input);
       setTimeout(() => input.focus(), 50);
       return () => input.value.trim();
@@ -1166,7 +1166,7 @@ function viewPicker(body, param) {
             switch_(selected.has(p.name), (on) => {
               if (on) selected.add(p.name);
               else selected.delete(p.name);
-              count.textContent = selected.size + " selected";
+              count.textContent = t(selected.size + " selected");
             }),
           ],
         }),
@@ -1183,7 +1183,7 @@ function viewPicker(body, param) {
   clear.type = "button";
   clear.addEventListener("click", () => {
     selected.clear();
-    count.textContent = "0 selected";
+    count.textContent = t("0 selected");
     paint("");
   });
   const done = el("button", "btn", "Done");
@@ -1282,9 +1282,9 @@ function viewSettings(body) {
 
   body.append(
     note(
-      "Config format version " +
+      t("Config format version ") +
         (state.config.version || 2) +
-        ". Every change is written through sync-tool, which keeps one .bak and pushes the new policy to the kernel in the same step.",
+        t(". Every change is written through sync-tool, which keeps one .bak and pushes the new policy to the kernel in the same step."),
     ),
   );
 }
@@ -1308,7 +1308,7 @@ function viewRaw(body) {
     try {
       parsed = JSON.parse(area.value);
     } catch (e) {
-      toast("Not valid JSON: " + e.message, "bad");
+      toast(t("Not valid JSON: ") + e.message, "bad");
       return;
     }
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
@@ -1366,7 +1366,7 @@ function viewBackup(body) {
   body.append(el("div", "section-title", "Restore"));
   const paste = el("textarea", "field");
   paste.spellcheck = false;
-  paste.placeholder = "paste a config here";
+  paste.placeholder = t("paste a config here");
   paste.style.minHeight = "160px";
   body.append(paste);
 
@@ -1378,7 +1378,7 @@ function viewBackup(body) {
     try {
       parsed = JSON.parse(paste.value);
     } catch (e) {
-      toast("Not valid JSON: " + e.message, "bad");
+      toast(t("Not valid JSON: ") + e.message, "bad");
       return;
     }
     await change("Restore", (c) => {
@@ -1398,7 +1398,7 @@ function viewAbout(body) {
   lead.append(icon("shield"));
   hs.append(lead, el("div", "main"));
   const hm = hs.querySelector(".main");
-  hm.append(el("div", "title", "HMA UID Fake"));
+  hm.append(el("div", "title", "HMA UID Fake fork"));
   hm.append(el("div", "sub", state.version ? "version " + state.version : "version unknown"));
   box.append(hs);
   box.append(
@@ -1457,7 +1457,7 @@ function viewHelp(body) {
   box.append(
     note(
       ((state.status && state.status.config) || "/data/adb/hma-uidfake/config.json") +
-        " -- outside the modules directory, so a module update does not replace it. One .bak is kept beside it.",
+        t(" -- outside the modules directory, so a module update does not replace it. One .bak is kept beside it."),
     ),
   );
   body.append(box);
