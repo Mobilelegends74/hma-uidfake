@@ -2,7 +2,7 @@ name: build
 
 on:
   push:
-    branches: [main, build/android14-6.1-compat, feature/webui-audited-build-v2, feature/ru-en-webui-fork-readme]
+    branches: [main, build/android14-6.1-compat, feature/webui-audited-build-v2, feature/ru-en-webui-fork-readme, test/context-help-status-v036]
     tags: ["v*"]
   pull_request:
     branches: [main, build/android14-6.1-compat]
@@ -113,7 +113,9 @@ jobs:
           set -euo pipefail
           node --check module/webroot/app.js
           node --check module/webroot/i18n.js
+          node --check module/webroot/help.js
           node scripts/test-webui-i18n.cjs
+          node scripts/test-webui-help.cjs
           grep -q -- '--get-config' src/tools/sync.cpp
           grep -q -- '--set-config' src/tools/sync.cpp
       - name: Build and pack
@@ -124,7 +126,7 @@ jobs:
           zip=$(find build/dist -maxdepth 1 -name '*.zip' -type f -print -quit)
           test -n "$zip"
           unzip -t "$zip"
-          unzip -p "$zip" module.prop | grep -q '^version=0[.]3[.]5-fork+'
+          unzip -p "$zip" module.prop | grep -q '^version=0[.]3[.]6-test+'
           for kmi in android12-5.10 android13-5.10 android13-5.15 android14-5.15 android14-6.1 android15-6.6 android16-6.12 android17-6.18; do
             unzip -Z1 "$zip" | grep -qx "ko/${kmi}_arm64_hma_uidfake.ko"
           done
@@ -134,6 +136,7 @@ jobs:
           unzip -Z1 "$zip" | grep -qx 'webroot/index.html'
           unzip -Z1 "$zip" | grep -qx 'webroot/app.js'
           unzip -Z1 "$zip" | grep -qx 'webroot/i18n.js'
+          unzip -Z1 "$zip" | grep -qx 'webroot/help.js'
           unzip -Z1 "$zip" | grep -qx 'webroot/locale.js'
           unzip -p "$zip" module.prop | grep -q '^name=HMA UID Fake fork$'
           unzip -Z1 "$zip" | grep -qx 'webroot/style.css'

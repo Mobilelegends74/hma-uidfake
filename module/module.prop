@@ -1,7 +1,7 @@
 id=hma-uidfake
 name=HMA UID Fake fork
 # Fallback only: the build replaces these two with the git tag and the short hash.
-version=0.3.5-fork
-versionCode=3005
+version=0.3.6-test
+versionCode=3006
 author=Kodatemitsuru, Mobilelegends74
-description=HMA UID Fake fork: kernel-side UID filtering with HMA/HMA-OSS, WebUI in Russian/English, eight KMI targets and automatic boot loading.
+description=❌ Not working

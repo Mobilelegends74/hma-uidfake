@@ -672,3 +672,33 @@ input.field {
     transform: rotate(360deg);
   }
 }
+
+/* Compact contextual help icons and scrollable explanatory sheets. */
+.help-inline {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  color: var(--dim);
+  border: 1px solid var(--outline);
+  background: var(--surface-2);
+}
+.help-inline svg { width: 18px; height: 18px; }
+.context-help-intro {
+  margin: 0 0 16px;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.55;
+}
+.context-help-heading {
+  margin: 15px 0 4px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 650;
+}
+.context-help-paragraph {
+  margin: 0 0 9px;
+  color: var(--dim);
+  font-size: 13px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}

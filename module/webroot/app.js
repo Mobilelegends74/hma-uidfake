@@ -211,7 +211,7 @@ function $(id) {
 function el(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
-  if (text != null) node.textContent = t(text);
+  if (text != null) node.textContent = text; /* English function labels remain unchanged */
   return node;
 }
 
@@ -320,7 +320,7 @@ function searchBar(value, placeholder, onInput) {
   const input = document.createElement("input");
   input.type = "search";
   input.value = value || "";
-  input.placeholder = t(placeholder);
+  input.placeholder = placeholder;
   input.addEventListener("input", () => onInput(input.value));
   box.append(input);
   return box;
@@ -347,7 +347,7 @@ function row(opts) {
   const main = el("div", "main");
   const title = el("div", "title");
   if (Array.isArray(opts.title)) title.append(...opts.title);
-  else title.textContent = t(opts.title || "");
+  else title.textContent = opts.title || "";
   main.append(title);
   if (opts.sub) {
     const sub = el("div", "sub" + (opts.subMono ? " mono" : ""), opts.sub);
@@ -564,16 +564,60 @@ function titleFor(s) {
 }
 
 function actionsFor(s) {
-  if (s.screen === "home") {
-    return [
-      {
-        title: "Settings",
-        icon: "gear",
-        onClick: () => go("settings"),
-      },
-    ];
-  }
-  return [];
+  const actions = s.screen === "home"
+    ? [{ title: "Settings", icon: "gear", onClick: () => go("settings") }]
+    : [];
+  // All menu screens have their own explanation; this never changes policy.
+  actions.push({
+    title: languageText("Справка по разделу", "About this screen"),
+    icon: "help",
+    onClick: () => showContextHelp(screenHelpKey(s)),
+  });
+  return actions;
+}
+
+function languageText(ru, en) {
+  return HMA_UI_LOCALE === "ru" ? ru : en;
+}
+
+function screenHelpKey(s) {
+  if (s.screen === "picker" && s.param && s.param.names) return "pickerTemplates";
+  return s.screen;
+}
+
+function helpButton(key) {
+  const btn = el("button", "icon-btn help-inline");
+  btn.type = "button";
+  btn.title = languageText("Что делает этот раздел", "What does this do?");
+  btn.setAttribute("aria-label", btn.title);
+  btn.append(icon("help"));
+  btn.addEventListener("click", (event) => {
+    event.stopPropagation(); // do not activate the parent navigational row
+    showContextHelp(key);
+  });
+  btn.addEventListener("keydown", (event) => event.stopPropagation());
+  return btn;
+}
+
+function showContextHelp(key) {
+  const item = window.HMA_CONTEXT_HELP && window.HMA_CONTEXT_HELP[key];
+  if (!item) return;
+  const locale = HMA_UI_LOCALE === "ru" ? "ru" : "en";
+  const data = item[locale];
+  sheet({
+    title: data.title,
+    infoOnly: true,
+    confirm: languageText("Понятно", "Got it"),
+    body: (wrap) => {
+      wrap.className = "context-help";
+      wrap.append(el("p", "context-help-intro", data.intro));
+      for (const section of data.sections) {
+        wrap.append(el("h4", "context-help-heading", section.title));
+        wrap.append(el("p", "context-help-paragraph", section.text));
+      }
+    },
+    onConfirm: () => false,
+  });
 }
 
 /* ---- home ---- */
@@ -597,7 +641,7 @@ function viewHome(body) {
         lead: leadIcon("apps"),
         title: "Manage apps",
         sub: rules ? rules + " app" + (rules === 1 ? "" : "s") + " with a rule" : "no rules yet",
-        trail: [icon("next")],
+        trail: [helpButton("apps"), icon("next")],
         onClick: () => go("apps"),
       }),
       row({
@@ -606,7 +650,7 @@ function viewHome(body) {
         sub: templates
           ? templates + " template" + (templates === 1 ? "" : "s")
           : "no templates yet",
-        trail: [icon("next")],
+        trail: [helpButton("templates"), icon("next")],
         onClick: () => go("templates"),
       }),
     ]),
@@ -618,28 +662,28 @@ function viewHome(body) {
         lead: leadIcon("save"),
         title: "Backup & restore",
         sub: "copy the config, paste one back",
-        trail: [icon("next")],
+        trail: [helpButton("backup"), icon("next")],
         onClick: () => go("backup"),
       }),
       row({
         lead: leadIcon("help"),
         title: "How it works",
         sub: "what this does and does not cover",
-        trail: [icon("next")],
+        trail: [helpButton("help"), icon("next")],
         onClick: () => go("help"),
       }),
       row({
         lead: leadIcon("gear"),
         title: "Settings",
         sub: "theme, raw config",
-        trail: [icon("next")],
+        trail: [helpButton("settings"), icon("next")],
         onClick: () => go("settings"),
       }),
       row({
         lead: leadIcon("info"),
         title: "About",
         sub: state.version ? "version " + state.version : "module information",
-        trail: [icon("next")],
+        trail: [helpButton("about"), icon("next")],
         onClick: () => go("about"),
       }),
     ]),
@@ -1403,7 +1447,10 @@ function viewAbout(body) {
   box.append(hs);
   box.append(
     note(
-      "A KernelSU kernel module: a hidden app's uid is made to look like it does not exist, so another app scanning uids does not find it.",
+      languageText(
+        "HMA UID Fake fork дополняет HMA/HMA-OSS: по правилам скрытия ядро отвечает на отдельные проверки UID так, будто скрываемого приложения нет. Это не заменяет фильтрацию PackageManager.",
+        "A KernelSU kernel module that complements HMA/HMA-OSS by making selected UID checks behave as if a hidden app is absent. It does not replace PackageManager filtering."
+      ),
     ),
   );
   body.append(box);
@@ -1434,32 +1481,37 @@ function viewAbout(body) {
 
   body.append(
     note(
-      "The screen layout follows the HMA-OSS app because these settings are familiar in that shape. It is an independent reimplementation for this module, not a copy of its code.",
+      languageText(
+        "Интерфейс повторяет знакомую структуру меню HMA-OSS, но реализован отдельно для ядрового модуля. Исходный код HMA-OSS здесь не копируется.",
+        "The layout follows familiar HMA-OSS menus, but this WebUI was reimplemented independently for this kernel module without copying HMA-OSS source code."
+      ),
     ),
   );
 }
 
 function viewHelp(body) {
   const box = el("div", "card pad");
-  box.append(el("div", "section-title", "What it does"));
-  box.append(
-    note(
-      "For an app you name as a caller, the kernel reports the uids you list as free, so a scan of /proc or a uid lookup does not turn them up.",
-    ),
-  );
-  box.append(el("div", "section-title", "What it does not do"));
-  box.append(
-    note(
-      "It is a kernel-side guard. It does not hook the Java framework, so an app that asks PackageManager, ActivityManager or a ContentProvider for an installed package can still be told it exists. Hiding an icon, hiding from the launcher and per-hook switches are not implemented here. Treat this as one layer, not a complete hiding system.",
-    ),
-  );
-  box.append(el("div", "section-title", "Where the config lives"));
-  box.append(
-    note(
-      ((state.status && state.status.config) || "/data/adb/hma-uidfake/config.json") +
-        t(" -- outside the modules directory, so a module update does not replace it. One .bak is kept beside it."),
-    ),
-  );
+  box.append(el("div", "section-title", languageText("Что делает модуль", "What it does")));
+  box.append(note(languageText(
+    "Для заданного проверяющего приложения ядро меняет ответы отдельных вызовов, связанных с UID: указанные скрытые приложения выглядят отсутствующими. Работают правила, поступившие из HMA/HMA-OSS, либо отдельная JSON-политика WebUI.",
+    "For a configured caller, the kernel adjusts selected UID queries so that specified hidden apps appear absent. Rules come from HMA/HMA-OSS or an independent WebUI JSON policy."
+  )));
+  box.append(el("div", "section-title", languageText("Чего модуль не делает", "What it does not do")));
+  box.append(note(languageText(
+    "Модуль не перехватывает Java API: PackageManager, ActivityManager и ContentProvider могут по-прежнему обнаруживать приложения. Он не скрывает иконки и не заменяет HMA-OSS. Разные прошивки могут ограничивать установку хуков.",
+    "The module does not intercept Java APIs: PackageManager, ActivityManager or ContentProvider can still reveal apps. It does not hide launcher icons or replace HMA-OSS. Vendor kernels may also limit which hooks can be installed."
+  )));
+  box.append(el("div", "section-title", languageText("Где хранятся настройки", "Where the config lives")));
+  const configPath = (state.status && state.status.config) || "/data/adb/hma-uidfake/config.json";
+  box.append(note(configPath + languageText(
+    " — самостоятельная конфигурация хранится вне каталога модуля. Обновление ZIP её не перезаписывает; рядом сохраняется резервная копия .bak.",
+    " — standalone settings are outside the module directory, so a ZIP update does not overwrite them. One .bak backup is kept alongside."
+  )));
+  box.append(el("div", "section-title", languageText("Как действуют правила HMA-OSS", "How HMA-OSS rules are used")));
+  box.append(note(languageText(
+    "Если источник правил — hma-oss, они синхронизируются с ядром автоматически. Раздел Manage apps показывает только самостоятельные правила; сохранение новой JSON-политики переключает источник с HMA-OSS после подтверждения.",
+    "When hma-oss is the active source, its rules are synchronized automatically. Manage apps lists only independent rules; saving a new standalone JSON policy takes priority over HMA-OSS after confirmation."
+  )));
   body.append(box);
 }
 
@@ -1492,7 +1544,8 @@ function sheet(opts) {
     const keep = await opts.onConfirm(read);
     if (!keep) closeSheet();
   });
-  bar.append(cancel, ok);
+  if (!opts.infoOnly) bar.append(cancel);
+  bar.append(ok);
   box.append(bar);
 
   root.append(box);
