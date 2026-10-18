@@ -1,0 +1,68 @@
+name: Experimental HMA-OSS LSPosed PM permission fix
+
+on:
+  push:
+    branches:
+      - experiment/hmaoss-lsposed-pm-exceptions
+    paths:
+      - '.github/workflows/hmaoss-lsposed-pm.yml'
+      - 'tools/hma_oss_lsposed_patch.py'
+      - 'docs/hma-oss-lsposed-pm.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-lsposed-apk:
+    name: Patch and compile oss-162 LSPosed APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check out exact last LSPosed release
+        run: |
+          set -euo pipefail
+          git clone https://github.com/frknkrc44/HMA-OSS.git hmaoss
+          git -C hmaoss checkout --detach b52a10d609d069e82e578d97b4c25a8f4c5d822a
+          test "$(git -C hmaoss rev-parse HEAD)" = "b52a10d609d069e82e578d97b4c25a8f4c5d822a"
+
+      - name: Apply checked PermissionManager exception fix
+        run: |
+          set -euo pipefail
+          python3 tools/hma_oss_lsposed_patch.py hmaoss
+          test "$(grep -c 'if (param.hasThrowable()) return@hookAfter'             hmaoss/xposed/src/main/java/icu/nullptr/hidemyapplist/xposed/hook/PmsHookTargetBase.kt)" = 4
+          git -C hmaoss diff --check
+          git -C hmaoss diff -- xposed/src/main/java/icu/nullptr/hidemyapplist/xposed/hook/PmsHookTargetBase.kt
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Prepare Gradle environment
+        run: |
+          set -euo pipefail
+          cd hmaoss
+          touch local.properties
+          mkdir -p "$HOME/.config/.android"
+          if [ ! -e "$HOME/.android" ]; then ln -s "$HOME/.config/.android" "$HOME/.android"; fi
+          chmod +x ./gradlew
+          echo 'org.gradle.jvmargs=-Xmx2048m' >> gradle.properties
+
+      - name: Build experimental debug APK
+        working-directory: hmaoss
+        run: |
+          set -euo pipefail
+          ./gradlew --no-daemon prebuild
+          ./gradlew --no-daemon assembleDebug
+          test -n "$(find app/build/outputs/apk/debug -name '*.apk' -type f -print -quit)"
+          sha256sum app/build/outputs/apk/debug/*.apk
+
+      - name: Upload APK for isolated device testing
+        uses: actions/upload-artifact@v4
+        with:
+          name: HMA-OSS-LSPosed-oss162-permission-preserving-debug
+          path: hmaoss/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
