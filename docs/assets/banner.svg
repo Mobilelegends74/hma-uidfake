@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="350" viewBox="0 0 1200 350" role="img" aria-label="HMA UID Fake fork — Kernel-side UID privacy for Android">
+ <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#111628"/><stop offset=".55" stop-color="#1b2344"/><stop offset="1" stop-color="#101d2c"/></linearGradient><linearGradient id="g" x1="0" x2="1"><stop stop-color="#75a9ff"/><stop offset="1" stop-color="#7ce5cd"/></linearGradient><filter id="blur"><feGaussianBlur stdDeviation="42"/></filter></defs>
+ <rect width="1200" height="350" rx="22" fill="url(#bg)"/>
+ <circle cx="1080" cy="-15" r="235" fill="#3b64d1" opacity=".20" filter="url(#blur)"/>
+ <circle cx="750" cy="350" r="160" fill="#1de8bc" opacity=".09" filter="url(#blur)"/>
+ <g opacity=".075" stroke="#c5e4ff"><path d="M55 0v350M115 0v350M175 0v350M235 0v350M295 0v350M355 0v350M415 0v350M475 0v350M535 0v350M595 0v350M655 0v350M715 0v350M775 0v350M835 0v350M895 0v350M955 0v350M1015 0v350M1075 0v350M1135 0v350"/><path d="M0 40h1200M0 100h1200M0 160h1200M0 220h1200M0 280h1200"/></g>
+ <g transform="translate(66 60)"><rect x="0" y="0" width="105" height="105" rx="27" fill="#ffffff" fill-opacity=".08" stroke="#a8cbff" stroke-opacity=".4"/><path d="M53 23 80 35v28c0 19-12 31-27 39-15-8-27-20-27-39V35z" transform="translate(0 -9)" fill="none" stroke="url(#g)" stroke-width="7" stroke-linejoin="round"/><path d="m40 50 10 10 19-21" fill="none" stroke="#7ce5cd" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></g>
+ <text x="196" y="122" font-family="Segoe UI, Arial, sans-serif" font-size="57" font-weight="750" fill="#f2f6ff">HMA UID Fake <tspan fill="#8edaff">fork</tspan></text>
+ <text x="196" y="164" font-family="Segoe UI, Arial, sans-serif" font-size="21" fill="#b2c4df">Kernel-side UID filtering for Android · KernelSU Next</text>
+ <g font-family="Segoe UI, Arial, sans-serif" font-size="19" font-weight="600">
+ <rect x="196" y="212" width="169" height="41" rx="20" fill="#82b6ff" fill-opacity=".15" stroke="#82b6ff" stroke-opacity=".5"/><text x="280" y="238" text-anchor="middle" fill="#a9caff">8 KMI builds</text>
+ <rect x="380" y="212" width="178" height="41" rx="20" fill="#7ce5cd" fill-opacity=".12" stroke="#7ce5cd" stroke-opacity=".5"/><text x="469" y="238" text-anchor="middle" fill="#95edd6">WebUI · RU / EN</text>
+ <rect x="573" y="212" width="204" height="41" rx="20" fill="#82b6ff" fill-opacity=".12" stroke="#82b6ff" stroke-opacity=".4"/><text x="675" y="238" text-anchor="middle" fill="#b2d0ff">HMA / HMA-OSS</text>
+ </g>
+ <text x="69" y="315" font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size="15" fill="#8199bf">HMA-OSS  →  sync-tool  →  kaux / kernel  →  UID queries</text>
+</svg>
