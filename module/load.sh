@@ -1,30 +1,41 @@
 #!/system/bin/sh
-# Audited loader shell adaptation from the owner-provided 0.4.0 archive.
-# This script is invoked ONLY AFTER the explicit allow_load gate.
+# Common KMI-specific loader for post-fs-data and service.
+# Kernel hooks cannot be safely replaced in a live kernel; an already loaded
+# instance is not unloaded or stacked on top of.
 uidfake_load() {
-  local moddir="$1"
-  local ko="$moddir/ko/hma_uidfake.ko"
-  local rc
-  [ -f "$ko" ] || { echo "[load] no matching kernel module"; return 1; }
-  if lsmod | grep -q '^hma_uidfake '; then
-    echo "[load] existing hma_uidfake in kernel; replacing it requires a reboot"
+  _moddir="$1"
+  _ko="$_moddir/ko/hma_uidfake.ko"
+
+  if [ -e /data/adb/hma-uidfake/disable_load ]; then
+    echo "[load] disabled by owner marker"
     return 0
   fi
+  if [ ! -f "$_ko" ]; then
+    echo "[load] no compatible kernel module selected; refusing cross-KMI load"
+    return 1
+  fi
+  if lsmod | grep -q '^hma_uidfake '; then
+    echo "[load] kernel module already loaded; will not stack or hot-replace"
+    return 0
+  fi
+
   if [ -x /data/adb/ksud ]; then
-    /data/adb/ksud insmod "$ko"
-    rc=$?
-    echo "[load] ksud rc=$rc"
-  elif [ -x "$moddir/lkmloader" ]; then
-    "$moddir/lkmloader" "$ko"
-    rc=$?
-    echo "[load] lkmloader rc=$rc"
-  else
-    echo "[load] no loader found"
-    return 1
+    /data/adb/ksud insmod "$_ko"
+    _rc=$?
+    echo "[load] ksud insmod rc=$_rc"
+    if lsmod | grep -q '^hma_uidfake '; then
+      return 0
+    fi
   fi
-  if ! lsmod | grep -q '^hma_uidfake '; then
-    echo "[load] kernel module not loaded; check KMI and loader logs"
-    return 1
+
+  if [ -x "$_moddir/lkmloader" ]; then
+    "$_moddir/lkmloader" "$_ko"
+    _rc=$?
+    echo "[load] bundled lkmloader rc=$_rc"
+    if lsmod | grep -q '^hma_uidfake '; then
+      return 0
+    fi
   fi
-  return 0
+  echo "[load] could not load compatible module; inspect state/sync.log and dmesg"
+  return 1
 }

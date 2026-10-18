@@ -68,7 +68,7 @@ function(ug_git out)
   endif()
 endfunction()
 
-ug_git(_tag describe --tags --abbrev=0)
+ug_git(_tag describe --exact-match --tags)
 ug_git(_hash rev-parse --short HEAD)
 if(_tag)
   string(REGEX REPLACE "^v" "" _tag "${_tag}")

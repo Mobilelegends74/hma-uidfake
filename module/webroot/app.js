@@ -682,11 +682,11 @@ function statusCard() {
     return line;
   };
 
-  box.append(kv("Rules pushed", String(st.rules)));
+  box.append(kv("Rules active in kernel", st.rules == null ? "unavailable" : String(st.rules)));
   box.append(kv("Rule source", st.source === "none" ? "none (idle)" : st.source));
   if (st.kernel) {
     box.append(
-      kv("Hidden uids", st.kernel.native + " native, " + st.kernel.compat + " compat"),
+      kv("Syscall hooks", st.kernel.native + " native, " + st.kernel.compat + " compat"),
     );
     box.append(kv("APK inodes", String(st.kernel.apk_inodes)));
     if (st.kernel.summary) box.append(kv("Summary", st.kernel.summary));

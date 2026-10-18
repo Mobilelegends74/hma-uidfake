@@ -1,7 +1,7 @@
 id=hma-uidfake
 name=HMA UID Fake (audited test)
 # Fallback only: the build replaces these two with the git tag and the short hash.
-version=0.3.3-audit
-versionCode=3003
+version=0.3.4-audit
+versionCode=3004
 author=Kodatemitsuru
-description=Experimental test build from recovered 0.3.3 sources. Kernel load is opt-in via /data/adb/hma-uidfake/allow_load. Backup and recovery are required.
+description=Experimental multi-KMI build from audited sources. Loads automatically for a matched kernel on the normal reboot; keep recovery available.

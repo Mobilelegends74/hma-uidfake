@@ -67,6 +67,7 @@ struct uid_pair { /* 8 bytes: POLICY_WAY of them fill one cache line */
 };
 
 void policy_apply(const u32 *pairs, u32 npairs);
+u32 policy_live_pairs(void); /* number of rules in the currently published RCU snapshot */
 
 /*
  * Diagnostics sit behind a static key: when it is off the branch is patched to

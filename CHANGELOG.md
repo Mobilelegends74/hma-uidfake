@@ -1,3 +1,12 @@
+## 0.3.4-audit (October 2026; multi-KMI WebUI + automatic startup)
+
+- Fix WebUI falsely showing 0 rules: extend kaux protocol v4 status to include the actual live RCU policy-pair count.
+- Rename misleading `Hidden uids` label to `Syscall hooks`; separate hook counts from rule counts.
+- Restore all eight KMI module builds that were present in the original workflow.
+- Restore automatic startup on the first normal reboot after installation, without `allow_load`.
+- Prevent cross-KMI or ambiguous-vendor fallback loads; offer recovery opt-out `disable_load`.
+- Maintain the open-source HMA-OSS sync, WebUI, and source audit; no opaque 0.4.0 module binaries.
+
 # Changelog
 
 ## 0.3.3-audit WebUI build (October 2026; not upstream 0.4.0)

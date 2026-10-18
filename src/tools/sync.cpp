@@ -681,7 +681,7 @@ void Syncer::print_status() {
   nlohmann::json out;
   out["ok"] = true;
   out["tool"] = "sync-tool";
-  out["rules"] = pushed_.size();
+  out["rules"] = nullptr; /* unavailable until a live kernel answers */
 
   const auto source = RuleSource::active(sources_);
   out["source"] = source ? std::string{tool_name(source->tool())} : "none";
@@ -692,9 +692,11 @@ void Syncer::print_status() {
   out["config_present"] = std::filesystem::exists(native, ignored);
 
   if (const auto st = netlink_.status()) {
+    out["rules"] = st->policy_pairs;
     out["kernel"] = {
         {"native", st->native},
         {"compat", st->compat},
+        {"policy_pairs", st->policy_pairs},
         {"apk_inodes", st->apk_inodes},
         {"apk_offered", st->apk_offered},
         {"apk_failed", st->apk_failed},
@@ -704,7 +706,7 @@ void Syncer::print_status() {
         {"page_shift", st->page_shift},
         {"last_error", st->last_error},
     };
-    out["kernel"]["summary"] = status_line(netlink_, pushed_.size());
+    out["kernel"]["summary"] = status_line(netlink_, st->policy_pairs);
   } else {
     out["kernel"] = nullptr;
     out["kernel_note"] = netlink_.unsupported() ? "module older than tool"

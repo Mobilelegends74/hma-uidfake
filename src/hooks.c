@@ -35,6 +35,7 @@ static struct kaux_status g_status = {
 void uidfake_status_get(struct kaux_status *out)
 {
 	*out = g_status;
+	out->policy_pairs = policy_live_pairs();
 	/* The reader checks these before it believes anything else, so they are set
 	 * here and not left to whoever filled the rest in. */
 	out->magic = KAUX_STATUS_MAGIC;

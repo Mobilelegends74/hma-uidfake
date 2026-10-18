@@ -44,4 +44,5 @@ check "6.12.23-android16-6-g1-ab"                          android16-6.12
 check "6.18.1-android17-5-g1-ab"                           android17-6.18
 check "5.10.198-android12-9-g1-ab"                         android12-5.10
 check "4.19.191-g1234ab"                                   ""
+check "5.15.167-gvendor-123"                                ""
 exit $fail

@@ -28,7 +28,7 @@
 #endif
 
 #define KAUX_FAMILY_NAME "kaux"
-#define KAUX_FAMILY_VERSION 3u
+#define KAUX_FAMILY_VERSION 4u
 
 /* One attribute carries the payload in either direction. */
 enum {
@@ -100,6 +100,7 @@ struct kaux_status {
 	unsigned int va_bits;
 	unsigned int page_shift;
 	char lsm_target[32]; /* the implementation the hook was taken from */
+	unsigned int policy_pairs; /* actual live (caller, target) pairs; RCU snapshot */
 };
 #define KAUX_STATUS_MAGIC 0x7875616bu /* "kaux" */
 
@@ -113,7 +114,7 @@ struct kaux_status {
 #define KAUX_LSM_FAILED 2
 #define KAUX_LSM_FALLBACK 3
 
-KAUX_STATIC_ASSERT(sizeof(struct kaux_status) == 104,
+KAUX_STATIC_ASSERT(sizeof(struct kaux_status) == 108,
 		   "kaux_status is the wire image");
 KAUX_STATIC_ASSERT(sizeof(struct kaux_begin) == 12,
 		   "kaux_begin is the wire image");

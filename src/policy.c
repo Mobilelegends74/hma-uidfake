@@ -81,6 +81,22 @@ static struct policy g_empty = {
  * whole. */
 static struct policy *g_pol __rcu = &g_empty;
 
+/* The authoritative count for status consumers such as KernelSU WebUI.
+ * Query the same RCU snapshot as the syscall guard, never a userspace daemon's
+ * private counter (each invocation of sync-tool begins with that counter 0).
+ */
+u32 policy_live_pairs(void)
+{
+	const struct policy *p;
+	u32 count;
+
+	rcu_read_lock();
+	p = rcu_dereference(g_pol);
+	count = p->npairs;
+	rcu_read_unlock();
+	return count;
+}
+
 struct apply_pair {
 	u32 caller;
 	u32 target;

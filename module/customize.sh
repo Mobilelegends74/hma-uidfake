@@ -27,7 +27,12 @@ kmi_from_uname() {
     [ "${_c#*-}" = "$_ver" ] && _cands="$_cands $_c"
   done
   _cands="${_cands# }"
-  [ "$(echo "$_cands" | wc -w)" -gt 1 ] && ui_print "! $(uname -r) fits $_cands; taking the first"
+  _count="$(echo "$_cands" | wc -w)"
+  if [ "$_count" -ne 1 ]; then
+    [ "$_count" -gt 1 ] && ui_print "! Ambiguous vendor kernel: $_cands (no automatic loading)"
+    echo ""
+    return
+  fi
   echo "${_cands%% *}"
 }
 
@@ -53,8 +58,7 @@ else
   ui_print "! No ko for $(uname -r) (KMI ${KMI:-unknown}). ko/ has: $(ls "$MODPATH/ko" | tr '\n' ' ')"
   ui_print "! A build for another KMI will not load, and forcing it in can crash or bootloop the"
   ui_print "! device. Build your own (docs/build.md) and report the device, its KMI and uname -r."
-  ui_print "! To try the closest build anyway, unsupported and at your own risk:"
-  ui_print "!   su -c 'mv $MODPATH/ko/hma_uidfake.ko.try $MODPATH/ko/hma_uidfake.ko && reboot'"
+  ui_print "! No automatic loading is attempted for unmatched kernels."
 fi
 
 set_perm_recursive "$MODPATH" 0 0 0755 0644
@@ -63,6 +67,7 @@ for f in "$MODPATH"/*.sh; do chmod 0755 "$f"; done
 [ -f "$MODPATH/sync-tool" ] && chmod 0755 "$MODPATH/sync-tool"
 [ -f "$MODPATH/lkmloader" ] && chmod 0755 "$MODPATH/lkmloader"
 
-ui_print "! AUDIT BUILD: kernel autoload is disabled by default."
-ui_print "! See module README and BUILD_VERIFICATION.md before opting in."
+ui_print "- Compatible kernels load automatically on the normal reboot after installation."
+ui_print "- No manual allow_load marker is required."
+ui_print "- To disable next boot: su -c 'touch /data/adb/hma-uidfake/disable_load'"
 ui_print "- Done"

@@ -1,21 +1,15 @@
-# HMA UID Fake – audited WebUI build
+# HMA UID Fake — multi-KMI WebUI, automatic load
 
-Source: last owner Action branch `build/android14-6.1-compat` (commit `f5c4e860`), with the standalone WebUI and source changes from `SHuiTU68/hma-uidfake`. The kernel code is still 0.3.3-era. No closed-source 0.4.0 ELF is embedded.
+The module includes eight original KMI targets: android12-5.10, android13-5.10, android13-5.15, android14-5.15, android14-6.1, android15-6.6, android16-6.12, android17-6.18.
 
-## Safety: explicit kernel loading
+Install the ZIP in KernelSU Next and perform **one normal reboot**. No extra `allow_load` step or second reboot is necessary. The installer selects a matching kernel module; if none can be selected, it deliberately refuses loading rather than forcing a different KMI. A compatible KMI is necessary but does not itself prove full device compatibility.
 
-Installing the ZIP does not by itself opt in to running kernel hooks. To enable loading from the next boot, the device owner must deliberately create:
+In WebUI, "Rules active in kernel" reflects the actual live RCU policy count. "Syscall hooks" is a separate number. A blank or unavailable count means the new kernel status response could not be read; it must not be shown as zero.
 
-```
-su -c 'mkdir -p /data/adb/hma-uidfake && touch /data/adb/hma-uidfake/allow_load'
-```
+The selected kernel module is loaded at post-fs-data/service. An already loaded older version is not forcibly unloaded/replaced during installation. To verify, check `lsmod | grep hma_uidfake` and `tail -n 50 /data/adb/modules/hma-uidfake/state/sync.log`. The background sync tool tracks HMA/HMA-OSS config changes.
 
-Remove the marker and reboot to avoid further loading. **Removing the marker does NOT unload any kernel hooks already installed.** If the marker was already created in a previous test it still counts as opt-in: remove it before installing if you want a fully inert first boot. Have boot recovery available.
+**Recovery:** kernel-inline hooks can cause boot failure on incompatible systems. Make a backup of your current boot image and confirm working recovery procedures. To inhibit loading on the next boot, create `/data/adb/hma-uidfake/disable_load`; remove it to re-enable. Removing a marker never unloads hooks already live in the kernel. You can also disable/remove the module through KernelSU or recovery when possible.
 
-## WebUI / rules
+The WebUI's standalone policy file `/data/adb/hma-uidfake/config.json` overrides HMA-OSS rules; it is not created until you choose to save new independent rules. Normal installs use HMA-OSS as before.
 
-KernelSU Next module WebUI is built into `webroot/` and calls the bundled `sync-tool`. It supports native rule lists, templates, a package picker, status and HMA/HMA-OSS config source observation. It needs no Zygisk. Native config is `/data/adb/hma-uidfake/config.json`; once created it takes priority over HMA/HMA-OSS as source. The panel asks for confirmation before this change.
-
-The WebUI sends config via stdin, without persistent temporary policy files. The daemon monitors config changes and rebuilds caller/target UID pairs. Review the active source and module status before assuming a policy is effective.
-
-Only Android 14-6.1 KMI is packaged by this audited workflow. `customize.sh` selects exact matching KMI or keeps a `.try` copy without loading it. No external auto-updater is embedded.
+This is still an experimental kernel-hook module; Action compilation cannot substitute for physical boot tests of every kernel.

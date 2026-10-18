@@ -1,11 +1,14 @@
-# HMA UID Fake – audited WebUI Action branch
+# HMA UID Fake — audited multi-KMI WebUI Action branch
 
-This branch extends the **owner's verified 0.3.3-audit Android14-6.1 build** with the open-source WebUI and standalone configuration backend from [SHuiTU68/hma-uidfake](https://github.com/SHuiTU68/hma-uidfake).
+This branch extends the proven owner build `0.3.3-audit` with the open-source WebUI, native rules, and verified source-level kernel status count from the actual policy RCU snapshot.
 
-The `getpriority`, `ioprio_get` and UID hook code remains the audited 0.3.3 implementation. The user-supplied 0.4.0 ZIP was examined statically but its newer closed inline-hook implementation was **not** copied into the codebase or binaries. This branch does **not** claim 0.4.0 hook parity or guaranteed detector bypass.
+**Kernel module compilation targets (8 original KMIs):** android12-5.10, android13-5.10, android13-5.15, android14-5.15, android14-6.1, android15-6.6, android16-6.12, android17-6.18. Compiling a target does not mean an arbitrary vendor kernel is boot-tested.
 
-The kernel module load is **opt-in** via `/data/adb/hma-uidfake/allow_load`; see [module/README.md](module/README.md). The standalone WebUI native config is kept at `/data/adb/hma-uidfake/config.json` and takes precedence once saved, even when HMA-OSS remains installed. The WebUI warns about that transition and uses stdin instead of temporary config files.
+- WebUI's "Rules active in kernel" reads `kaux_status.policy_pairs`, rather than a transient `sync-tool` process's empty cache. The 4+4 values are syscall-hook counts, not UID counts.
+- The KernelSU installer picks a KMI using the release string. It **never** forces an incompatible fallback and refuses an ambiguous vendor-only KMI.
+- Automatic load happens in post-fs-data/service on the **normal reboot after installation**; no `allow_load` marker or additional reboot needed. Already-running kernel modules cannot safely be upgraded until that normal reboot.
+- Manual emergency opt-out for the *next* boot: `su -c 'touch /data/adb/hma-uidfake/disable_load'`. To restore automatic load: delete that marker then reboot. This marker is an opt-OUT, not a prerequisite.
+- An HMA-OSS policy is used unless a standalone config `/data/adb/hma-uidfake/config.json` has been explicitly saved; standalone mode takes precedence and the WebUI warns before it does.
+- WebUI saves via stdin; no plaintext temp files. No opaque 0.4.0 ELF binaries or external updater are included.
 
-The workflow builds and validates a ZIP for KMI `android14-6.1`. There is no external update URL, no unsigned imported binaries, and no automatic merge to the default branch.
-
-[Detailed provenance and 0.4.0 audit](docs/legacy-040-review.md)
+For installation/recovery details, see [module/README.md](module/README.md) and [0.4.0 archive review](docs/legacy-040-review.md).
