@@ -626,7 +626,10 @@ function viewHome(body) {
   const hero = el("div", "hero");
   hero.append(el("h2", null, "HMA UID Fake fork"));
   hero.append(
-    el("p", null, "Kernel-side uid guard. Apps you hide here look uninstalled."),
+    el("p", null, languageText(
+      "Защита UID на уровне ядра: выбранные приложения выглядят отсутствующими при системных проверках UID. Работает вместе с HMA/HMA-OSS.",
+      "Kernel-side UID guard. Selected apps appear absent to UID checks. Works alongside HMA/HMA-OSS."
+    )),
   );
   body.append(hero);
 
