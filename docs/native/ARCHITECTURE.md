@@ -49,8 +49,9 @@ For Android kernels, the integrator scans task_struct preprocessor nesting and
 selects an **unconditional free** ANDROID_KABI_RESERVE slot, using ANDROID_KABI_USE.
 It avoids reservations already consumed by SYSVIPC/Droidspaces/SLIM_SCHED.
 On tested modified 6.1 trees it used slot 5; clean reference trees use slot 8.
-Host checks compare size, trailing offsets and __GENKSYMS__ representation using
-the tree's real Android KABI macros. Actual kernel compilation still matters.
+Host checks compare size and trailing offsets using the tree's real KABI macros;
+older headers also preserve __GENKSYMS__ representation. New DWARF-aware headers
+need the target's full ABI build for CRC certification. See [matrix](COMPATIBILITY.md).
 
 If Android KABI is present but no safe reservation is available, integration
 fails instead of silently changing vendor ABI. Non-Android trees can use a
@@ -82,8 +83,9 @@ Full compiled integrations and user-reported device success:
 - [GKI Linux 6.1.145](https://github.com/Mobilelegends74/GKI_KernelSU_SUSFS/releases/tag/gki-android14-6.1.145-2026-10-19-build53-1-uidfake).
 
 The kit CI runs native core/netlink sanitizer tests, 24,000 differential queries,
-65,536-pair capacity and patch/KABI/idempotence checks on two exact references.
-It does **not** compile every kernel, boot an emulator or validate every hook.
+65,536-pair capacity and patch/KABI/idempotence checks on ten exact references.
+Eight DDK jobs compile the built-in component and all five modified C call sites.
+They do **not** link every full Image, boot an emulator or validate every hook.
 Source-anchor checks are not a universal Android/Linux compatibility promise.
 The native component retains kernel protections; it does not require SELinux,
 CFI, module-version or ABI enforcement to be disabled.

@@ -25,3 +25,22 @@ jobs:
         run: python3 scripts/uidfake-test-kit.py
       - name: Packaging format regression (synthetic non-bootable fixture)
         run: python3 scripts/uidfake-test-packaging.py
+  compile:
+    name: Built-in ARM64 ${{ matrix.kmi }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        kmi: [android12-5.10, android13-5.10, android13-5.15, android14-5.15, android14-6.1, android15-6.6, android16-6.12, android17-6.18]
+    container:
+      image: ghcr.io/ylarod/ddk:${{ matrix.kmi }}-20260828
+    steps:
+      - uses: actions/checkout@v7
+      - name: Compile native archive and affected kernel objects
+        run: bash scripts/uidfake-compile-ddk.sh '${{ matrix.kmi }}'
+      - name: Retain source patch and compile report (not a flashable kernel)
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: native-check-${{ matrix.kmi }}
+          path: out/${{ matrix.kmi }}/

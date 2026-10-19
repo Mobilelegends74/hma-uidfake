@@ -1,0 +1,95 @@
+{
+  "schema": 1,
+  "targets": [
+    {
+      "id": "android12-5.10",
+      "kmi": "android12-5.10",
+      "branch": "android12-5.10-lts",
+      "commit": "fc0a4d09992fdb47c8861d5722e5ea1c90d31708",
+      "source": "aosp",
+      "module_target": true,
+      "patch": "patches/reference/android12-5.10.patch"
+    },
+    {
+      "id": "android13-5.10",
+      "kmi": "android13-5.10",
+      "branch": "android13-5.10-lts",
+      "commit": "30b93835619a2b68eacf7c3d470d1bcfb15f7b66",
+      "source": "aosp",
+      "module_target": true,
+      "patch": "patches/reference/android13-5.10.patch"
+    },
+    {
+      "id": "android13-5.15",
+      "kmi": "android13-5.15",
+      "branch": "android13-5.15-lts",
+      "commit": "ff23d765b06f6f38b7b368ad77a51d6ed910fe84",
+      "source": "aosp",
+      "module_target": true,
+      "patch": "patches/reference/android13-5.15.patch"
+    },
+    {
+      "id": "android14-5.15",
+      "kmi": "android14-5.15",
+      "branch": "android14-5.15-lts",
+      "commit": "a9c07a46a19c56fb91af0621d30d93802c3faf11",
+      "source": "aosp",
+      "module_target": true,
+      "patch": "patches/reference/android14-5.15.patch"
+    },
+    {
+      "id": "android14-6.1",
+      "kmi": "android14-6.1",
+      "branch": "android14-6.1-lts",
+      "commit": "5abe09f02b51f5609c72380b8d0024c79c077a75",
+      "source": "aosp",
+      "module_target": true,
+      "patch": "patches/reference/android14-6.1.patch"
+    },
+    {
+      "id": "android15-6.6",
+      "kmi": "android15-6.6",
+      "branch": "android15-6.6-lts",
+      "commit": "712c2cd5cdc1c35470b3142e46622c0a8decc7c4",
+      "source": "aosp",
+      "module_target": true,
+      "patch": "patches/reference/android15-6.6.patch"
+    },
+    {
+      "id": "android16-6.12",
+      "kmi": "android16-6.12",
+      "branch": "android16-6.12-lts",
+      "commit": "d92f18cbe9475320a68161cab398efe4e7452f2e",
+      "source": "aosp",
+      "module_target": true,
+      "patch": "patches/reference/android16-6.12.patch"
+    },
+    {
+      "id": "android17-6.18",
+      "kmi": "android17-6.18",
+      "branch": "android17-6.18-lts",
+      "commit": "a31a263b0fbaf361a4018723b65ccf8bb9b5b72d",
+      "source": "aosp",
+      "module_target": true,
+      "patch": "patches/reference/android17-6.18.patch"
+    },
+    {
+      "id": "gki-android14-6.1.145",
+      "kmi": "android14-6.1",
+      "branch": "android14-6.1.145_r00",
+      "commit": "266f523db5be6cf93b3a2c4f58251dfa65768e35",
+      "source": "aosp",
+      "module_target": false,
+      "patch": "patches/reference/gki-android14-6.1.145.patch"
+    },
+    {
+      "id": "oneplus-android14-6.1.118",
+      "kmi": "android14-6.1",
+      "branch": "oneplus/sm8650_v_15.0.0_oneplus_13r",
+      "commit": "7b9a23054ab0ada2886ed34a2137b9d0312891ff",
+      "source": "oneplus",
+      "module_target": false,
+      "patch": "patches/reference/oneplus-android14-6.1.118.patch"
+    }
+  ]
+}

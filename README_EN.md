@@ -35,6 +35,13 @@ The kernel component uses **CONFIG_HMA_UIDFAKE_BUILTIN=y**. A privileged Android
 | Architecture and compatibility limits | [Architecture](docs/native/ARCHITECTURE.md) |
 | HMA configuration, diagnostics and rollback | [Troubleshooting](docs/native/TROUBLESHOOTING.md) |
 
+## Supported targets
+
+All eight module targets: **android12-5.10, android13-5.10, android13-5.15,
+android14-5.15, android14-6.1, android15-6.6, android16-6.12, android17-6.18**.
+Each has a complete patch and a dedicated built-in/call-site compilation CI job.
+See the [matrix and validation boundaries](docs/native/COMPATIBILITY.md).
+
 ## Validated integrations
 
 - [OnePlus 13R, Android 14 / Linux 6.1.118](https://github.com/Mobilelegends74/OnePlus_KernelSU_SUSFS/releases/tag/op13r-6.1.118-2026-10-19-build90-1-uidfake).

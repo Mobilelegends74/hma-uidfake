@@ -13,3 +13,4 @@ dist/
 .scratch/
 /build*/
 .pi
+__pycache__/

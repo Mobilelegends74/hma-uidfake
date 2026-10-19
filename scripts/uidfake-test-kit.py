@@ -8,7 +8,7 @@ import urllib.parse
 
 root = Path(__file__).resolve().parent.parent
 assert (root / 'src/include/kaux.h').read_bytes() == (root / 'uidfake/kernel/include/kaux.h').read_bytes(), 'Protocol header drift'
-for p in (root / 'scripts').glob('uidfake-*.py'):
+for p in (root / 'scripts').glob('uidfake*.py'):
     ast.parse(p.read_text(), filename=str(p))
 for name in ('uidfake-stage-anykernel.sh', 'uidfake-integrate-kernel.sh'):
     subprocess.run(['bash', '-n', str(root / 'scripts' / name)], check=True)

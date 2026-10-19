@@ -4,6 +4,9 @@
 
 ## Requirements and boundaries
 
+All eight Android/KMI module targets: [matrix and limits](COMPATIBILITY.md).
+Choose the matching reference patch; use the integrator for modified vendor trees.
+
 Use your kernel's existing toolchain, configuration and build pipeline. Full builds were validated on ARM64 Android 14 / Linux 6.1.118 (OnePlus 13R) and 6.1.145 (GKI). Other kernels/architectures need independent validation. Host requirements: Python 3.10+, GNU patch and a C compiler. Building the optional companion requires Android NDK r27c, CMake and nlohmann-json3-dev.
 
 UIDFAKE complements HMA/HMA-OSS; it does not replace PackageManager filtering or the app's injection requirements. Native kernel code does not depend on a specific KernelSU/SUSFS version. The kit does not download or freeze those components.

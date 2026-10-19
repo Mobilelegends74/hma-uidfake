@@ -4,6 +4,10 @@
 
 Каждый файл включает нативные исходники, внутренние заголовки, Kconfig/Kbuild и все точки вызова. Требуется отдельно включить CONFIG_HMA_UIDFAKE_BUILTIN=y и добавить Android companion по [инструкции](../docs/native/INTEGRATION_RU.md).
 
+**Основная матрица — все 8 KMI модуля:** [патчи и уровни проверки](../docs/native/COMPATIBILITY.md).
+Точные коммиты всех 10 reference-баз: [targets.json](targets.json).
+Две базы ниже сохранены дополнительно для прежних сборок.
+
 | Файл | Исходная база для dry-run / Exact reference |
 |---|---|
 | [gki-android14-6.1.145.patch](reference/gki-android14-6.1.145.patch) | android/kernel/common, android14-6.1.145_r00, commit 266f523db5be6cf93b3a2c4f58251dfa65768e35 |
@@ -18,7 +22,7 @@ sha256sum --check patches/SHA256SUMS
 python3 scripts/uidfake-test-patches.py
 ```
 
-CI скачивает только нужные файлы этих двух зафиксированных исходных баз, применяет патчи без fuzz, проверяет KABI и повторное применение интегратора. Это не полная сборка каждого ядра. Reference commits here describe patch-test fixtures, **not pinned KernelSU/SUSFS dependencies**.
+CI проверяет все 10 reference-баз и отдельно компилирует встроенный компонент и пять затронутых файлов на восьми DDK-целях. Это не полная сборка Image каждого ядра. Reference commits here describe patch-test fixtures, **not pinned KernelSU/SUSFS dependencies**.
 
 Рабочие полные интеграции с дополнительными feature-патчами:
 

@@ -89,7 +89,7 @@ def integrate(kernel, patch_path):
         # the inactive SYSVIPC/SLIM_SCHED fallback branch.
         text = re.sub(
             r'\t/\* UIDFAKE identity: native KABI reservation \*/\n'
-            r'#if defined\(CONFIG_HMA_UIDFAKE_BUILTIN\) && defined\(CONFIG_ANDROID_KABI_RESERVE\)\n'
+            r'#if(?: defined\(CONFIG_HMA_UIDFAKE_BUILTIN\) && defined\(CONFIG_ANDROID_KABI_RESERVE\)|def CONFIG_HMA_UIDFAKE_BUILTIN)\n'
             r'\tANDROID_KABI_USE\((\d+), u32 hma_uidfake_app\);\n#else\n'
             r'\tANDROID_KABI_RESERVE\(\1\);\n#endif',
             lambda m: f'\tANDROID_KABI_RESERVE({m.group(1)});', text)
@@ -123,10 +123,15 @@ def integrate(kernel, patch_path):
         if not reserves and 'ANDROID_KABI_' in body:
             raise RuntimeError('no unconditional free task_struct KABI slot; refusing an ABI change')
         if reserves:
+            # Newer Android trees reserve KABI fields unconditionally and no
+            # longer define CONFIG_ANDROID_KABI_RESERVE (gendwarfksyms ABI).
+            conditional_reserve = 'CONFIG_ANDROID_KABI_RESERVE' in (
+                kernel / 'include/linux/android_kabi.h').read_text()
             slot = reserves[-1]
             anchor = f'\tANDROID_KABI_RESERVE({slot});'
-            replacement = ('\t/* UIDFAKE identity: native KABI reservation */\n'
-                '#if defined(CONFIG_HMA_UIDFAKE_BUILTIN) && defined(CONFIG_ANDROID_KABI_RESERVE)\n'
+            replacement = ('\t/* UIDFAKE identity: native KABI reservation */\n' +
+                ('#if defined(CONFIG_HMA_UIDFAKE_BUILTIN) && defined(CONFIG_ANDROID_KABI_RESERVE)\n'
+                 if conditional_reserve else '#ifdef CONFIG_HMA_UIDFAKE_BUILTIN\n') +
                 f'\tANDROID_KABI_USE({slot}, u32 hma_uidfake_app);\n'
                 '#else\n' + anchor + '\n#endif')
             body = once(body, anchor, replacement)
@@ -142,7 +147,8 @@ def integrate(kernel, patch_path):
                      '#ifdef CONFIG_HMA_UIDFAKE_BUILTIN')
         fallback = (condition + '\n'
                     '\tu32 hma_uidfake_app;\n#endif\n' + anchor)
-        body = once(body, anchor, fallback)
+        if not reserves or conditional_reserve:
+            body = once(body, anchor, fallback)
         return text[:start] + body + text[end:]
     edit('include/linux/sched.h', task_field)
     edit('drivers/misc/Kconfig', lambda t: t if 'hma_uidfake/Kconfig' in t else

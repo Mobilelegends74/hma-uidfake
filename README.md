@@ -38,6 +38,13 @@
 | Синхронизация HMA, диагностика и откат | [Troubleshooting](docs/native/TROUBLESHOOTING.md) |
 | CI, SHA-256 и проверка патчей | [Проверки комплекта](.github/workflows/native-patches.yml) |
 
+## Поддерживаемые версии
+
+Все восемь целей модуля: **android12-5.10, android13-5.10, android13-5.15,
+android14-5.15, android14-6.1, android15-6.6, android16-6.12, android17-6.18**.
+Для каждой есть полный патч и отдельная CI-компиляция встроенного компонента
+с затронутыми файлами ядра. [Матрица и границы проверки](docs/native/COMPATIBILITY.md).
+
 ## Проверенные интеграции
 
 - [OnePlus 13R, Android 14 / Linux 6.1.118](https://github.com/Mobilelegends74/OnePlus_KernelSU_SUSFS/releases/tag/op13r-6.1.118-2026-10-19-build90-1-uidfake).
