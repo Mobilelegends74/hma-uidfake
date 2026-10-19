@@ -50,6 +50,9 @@ jobs:
           python3 scripts/restore-modpost.py "/opt/ddk/src/${{ matrix.kmi }}"
           test -s "$KDIR/Module.symvers"
           head -n 3 "$KDIR/Module.symvers"
+          # An external M= build reuses the DDK host tools without rebuilding
+          # modpost. Prepare them explicitly after restoring its source.
+          make -C "$KDIR" ARCH=arm64 LLVM=1 CROSS_COMPILE=aarch64-linux-gnu- modules_prepare
 
           # kbuild writes objects into the M= directory, so build from a stage dir
           # that only contains symlinks to src/ to keep the checkout clean.

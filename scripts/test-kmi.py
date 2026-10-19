@@ -12,12 +12,15 @@ KMIS = ['android12-5.10', 'android13-5.10', 'android13-5.15', 'android14-5.15',
         'android14-6.1', 'android15-6.6', 'android16-6.12', 'android17-6.18']
 
 
-def elf(path, kmi, name='hma_uidfake', crc=True, machine=183, token=b'a', import_crc=True):
+def elf(path, kmi, name='hma_uidfake', crc=True, machine=183, token=b'a', import_crc=True, embedded=True, bare=False, extended=False):
     version = kmi.split('-', 1)[1]
     branch = kmi.split('-', 1)[0]
     note = struct.pack('<III', 4, 20, 3) + b'GNU\0' + token * 20
-    items = [('.shstrtab', b'', 3), ('.modinfo',
-             f'name={name}\0vermagic={version}.123-{branch}-8 SMP preempt mod_unload modversions aarch64\0'.encode(), 1),
+    release = version + '.123-custom' if bare else version + '.123-' + branch + '-8'
+    info = f'name={name}\0vermagic={release} SMP preempt mod_unload modversions aarch64\0'
+    if embedded:
+        info += f'uidfake_kmi={kmi}\0'
+    items = [('.shstrtab', b'', 3), ('.modinfo', info.encode(), 1),
              ('.note.gnu.build-id', note, 7)]
     items += [('.strtab', b'\0_printk\0', 3),
               ('.symtab', bytes(24) + struct.pack('<IBBHQQ', 1, 16, 0, 0, 0, 0), 2)]
@@ -25,7 +28,12 @@ def elf(path, kmi, name='hma_uidfake', crc=True, machine=183, token=b'a', import
         versions = struct.pack('<Q', 0x12345678) + b'module_layout\0'.ljust(56, b'\0')
         if import_crc:
             versions += struct.pack('<Q', 0x87654321) + b'_printk\0'.ljust(56, b'\0')
-        items += [('__versions', versions, 1)]
+        if extended:
+            names = b'module_layout\0' + (b'_printk\0' if import_crc else b'') + b'\0'
+            crcs = struct.pack('<I', 0x12345678) + (struct.pack('<I', 0x87654321) if import_crc else b'')
+            items += [('__version_ext_names', names, 1), ('__version_ext_crcs', crcs, 1)]
+        else:
+            items += [('__versions', versions, 1)]
     strings = b'\0' + b''.join(n.encode() + b'\0' for n, _, _ in items)
     items[0] = (items[0][0], strings, 3)
     blob = bytearray(64)
@@ -97,6 +105,9 @@ with tempfile.TemporaryDirectory(prefix='uidfake-kmi-test-') as tmp:
     case('5.15.211-android13-8', code='MODULE_METADATA', mutate=lambda m, r: elf(m / 'ko/android13-5.15_arm64_hma_uidfake.ko', 'android14-5.15'))
     case('5.15.211-android13-8', code='MODULE_METADATA', mutate=lambda m, r: elf(m / 'ko/android13-5.15_arm64_hma_uidfake.ko', 'android13-5.15', crc=False))
     case('5.15.211-android13-8', code='MODULE_METADATA', mutate=lambda m, r: elf(m / 'ko/android13-5.15_arm64_hma_uidfake.ko', 'android13-5.15', import_crc=False))
+    case('5.15.211-android13-8', 'android13-5.15', mutate=lambda m, r: elf(m / 'ko/android13-5.15_arm64_hma_uidfake.ko', 'android13-5.15', bare=True))
+    case('5.15.211-android13-8', code='MODULE_METADATA', mutate=lambda m, r: elf(m / 'ko/android13-5.15_arm64_hma_uidfake.ko', 'android13-5.15', bare=True, embedded=False))
+    case('6.12.123-android16-8', 'android16-6.12', mutate=lambda m, r: elf(m / 'ko/android16-6.12_arm64_hma_uidfake.ko', 'android16-6.12', extended=True))
     case('5.15.211-android13-8', code='MODULE_ELF', mutate=lambda m, r: elf(m / 'ko/android13-5.15_arm64_hma_uidfake.ko', 'android13-5.15', machine=62))
     case('5.15.211-android13-8', code='MODULE_ELF', mutate=lambda m, r: (m / 'ko/android13-5.15_arm64_hma_uidfake.ko').write_bytes(b'bad'))
     case('5.15.211-android13-8', code='KMI_MISSING', mutate=lambda m, r: (m / 'ko/android13-5.15_arm64_hma_uidfake.ko').unlink())

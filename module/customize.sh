@@ -40,6 +40,7 @@ fi
 chmod 0755 "$MODPATH/kmi-tool"
 . "$MODPATH/load.sh"
 if uidfake_select "$MODPATH"; then
+  uidfake_status "$MODPATH" '[PENDING_REBOOT] KMI identified; reboot required for kernel ABI validation'
   ui_print "- KMI: $_selected_kmi; unmodified module will be checked by the kernel after reboot."
 else
   ui_print "! No verified compatible module selected. See state/kmi.log and module status."

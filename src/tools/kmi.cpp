@@ -168,13 +168,19 @@ Module inspect(const std::filesystem::path &path) {
   } else {
     auto &ext = sections["__version_ext_names"];
     auto &crcs = sections["__version_ext_crcs"];
-    std::size_t n = 0;
-    for (std::size_t i = 0; i < ext.size(); ++n) {
+    if (crcs.size() % sizeof(uint32_t))
+      throw std::runtime_error("malformed extended CRC array");
+    std::size_t i = 0;
+    for (std::size_t n = 0; n < crcs.size() / sizeof(uint32_t); ++n) {
       auto name = zstring(ext, i);
       i += name.size() + 1;
       record(name, at<uint32_t>(crcs, n * 4));
     }
-    if (crcs.size() != n * 4)
+    // C string concatenation may leave one implicit final NUL in addition to
+    // the per-symbol explicit terminator. Never count it as another symbol.
+    if (ext.size() - i > 1 ||
+        std::any_of(ext.begin() + i, ext.end(),
+                    [](unsigned char c) { return c != 0; }))
       throw std::runtime_error("malformed extended symbol versions");
   }
   result.versioned = symtab && versioned.count("module_layout");
