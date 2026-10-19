@@ -1,3 +1,13 @@
+## 0.3.7-fork (October 2026 — verified custom-kernel KMI detection)
+
+- Promote the device-tested TEST-KMI implementation to the stable package; versionCode 3007.
+- Identify standard GKI from kernel metadata. For custom releases without Android KMI, use build-ID-verified live module CRC references and select only a unique matching candidate, including module_layout and at least eight shared CRCs, with no observed mismatch.
+- Refuse ambiguous, incomplete or conflicting evidence. Linux version, device model and Android version alone never select a module.
+- Restore DDK modpost export/CRC validation and retain complete version tables for all eight ARM64 KMI builds.
+- Load unchanged modules using finit_module with flags 0; no forced loading, vermagic rewriting or alternate-loader retries. Kernel admission still checks remaining imports.
+- Keep all KMI candidates and re-evaluate at boot; improve installer/status diagnostics and preserve HMA/HMA-OSS synchronization.
+- Add 38 selector cases, boot-loader checks and real ELF metadata validation. Device testing reported successful loading and HMA-OSS synchronization on the affected LineageOS custom 5.15 kernel; this does not establish universal device or hook compatibility.
+
 ## 0.3.6-fork (October 2026 — contextual WebUI help and minimal live status)
 
 - KernelSU module list now shows **only** a compact, live status: ✅ Working / ❌ Not working (Russian text when installer detects Russian), with no appended technical description.
@@ -260,13 +270,3 @@
 - First release. The module answers the app id (uid) of the packages HMA hides with the id of a
   real, unrelated, installed app, and the kernel refuses an id that a hidden package would be the
   only owner of.
-## 0.3.7-fork (October 2026 — verified custom-kernel KMI detection)
-
-- Promote the device-tested TEST-KMI implementation to the stable package; versionCode 3007.
-- Identify standard GKI from kernel metadata. For custom releases without Android KMI, use build-ID-verified live module CRC references and select only a unique matching candidate, including module_layout and at least eight shared CRCs, with no observed mismatch.
-- Refuse ambiguous, incomplete or conflicting evidence. Linux version, device model and Android version alone never select a module.
-- Restore DDK modpost export/CRC validation and retain complete version tables for all eight ARM64 KMI builds.
-- Load unchanged modules using finit_module with flags 0; no forced loading, vermagic rewriting or alternate-loader retries. Kernel admission still checks remaining imports.
-- Keep all KMI candidates and re-evaluate at boot; improve installer/status diagnostics and preserve HMA/HMA-OSS synchronization.
-- Add 38 selector cases, boot-loader checks and real ELF metadata validation. Device testing reported successful loading and HMA-OSS synchronization on the affected LineageOS custom 5.15 kernel; this does not establish universal device or hook compatibility.
-
