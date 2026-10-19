@@ -1,0 +1,27 @@
+name: Validate native kernel patches
+
+on:
+  push:
+    branches: [kernel-patches]
+  pull_request:
+    branches: [kernel-patches]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Native policy and netlink regression tests
+        run: python3 scripts/uidfake-test-native.py
+      - name: Verify patch checksums
+        run: sha256sum --check patches/SHA256SUMS
+      - name: Apply reference patches and verify KABI and idempotence
+        run: python3 scripts/uidfake-test-patches.py
+      - name: Validate tools and native-only workflow boundaries
+        run: python3 scripts/uidfake-test-kit.py
+      - name: Packaging format regression (synthetic non-bootable fixture)
+        run: python3 scripts/uidfake-test-packaging.py

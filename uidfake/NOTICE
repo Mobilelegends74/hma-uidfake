@@ -1,0 +1,9 @@
+HMA UIDFAKE native kernel integration, GPL-2.0.
+
+The pooled policy engine, kaux protocol header and netlink implementation are derived from:
+https://github.com/Mobilelegends74/hma-uidfake
+commit fa72fe4fa93b26a336bf8c421ba60a108a54c253 (v0.3.6-fork).
+Their SPDX GPL-2.0 notices are preserved. The native policy core and integration
+scripts are provided under GPL-2.0. The Android sync companion comes from that
+release; matching source and build instructions remain available at the above
+pinned source URL. SHA-256 checks are recorded in uidfake-stage-anykernel.sh.

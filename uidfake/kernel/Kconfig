@@ -1,0 +1,9 @@
+config HMA_UIDFAKE_BUILTIN
+	bool "HMA UID visibility policy (built-in)"
+	depends on NET
+	select CRC32
+	help
+	  Compile the HMA UID policy engine and privileged generic-netlink
+	  interface into the kernel. Android rule parsing runs in the companion
+	  sync-tool; no loadable kernel module or runtime text patcher is used.
+	  Native source hooks cover both native and compat syscall paths.
