@@ -7,14 +7,14 @@
 **Kernel-side UID visibility guard for KernelSU Next — a companion to HMA and HMA-OSS.**
 
 [![Build](https://img.shields.io/github/actions/workflow/status/Mobilelegends74/hma-uidfake/build.yml?branch=main&label=Build&style=flat-square)](https://github.com/Mobilelegends74/hma-uidfake/actions/workflows/build.yml)
-[![Latest release](https://img.shields.io/badge/Latest_release-v0.3.6--fork-orange?style=flat-square)](https://github.com/Mobilelegends74/hma-uidfake/releases/latest)
+[![Latest release](https://img.shields.io/badge/Latest_release-v0.3.7--fork-orange?style=flat-square)](https://github.com/Mobilelegends74/hma-uidfake/releases/latest)
 [![Downloads](docs/assets/downloads.svg)](https://github.com/Mobilelegends74/hma-uidfake/releases)
 [![GPL-2.0](https://img.shields.io/badge/License-GPL--2.0-blue?style=flat-square)](LICENSE)
 [![Languages](https://img.shields.io/badge/WebUI-Русский%20%2F%20English-3bba9d?style=flat-square)](#webui--languages)
 
 [Русская версия](README.md) · **English**
 
-[![Download latest ZIP](https://img.shields.io/badge/⬇_Download_latest_version-ZIP-2e9c82?style=for-the-badge)](https://github.com/Mobilelegends74/hma-uidfake/releases/download/v0.3.6-fork/hma-uidfake-fork-0.3.6.zip)
+[![Download latest ZIP](https://img.shields.io/badge/⬇_Download_latest_version-ZIP-2e9c82?style=for-the-badge)](https://github.com/Mobilelegends74/hma-uidfake/releases/download/v0.3.7-fork/hma-uidfake-fork-0.3.7.zip)
 
 [![Kernel patches](https://img.shields.io/badge/Kernel_patches-Built--in_UIDFAKE-6d43d6?style=for-the-badge&logo=linux&logoColor=white)](https://github.com/Mobilelegends74/hma-uidfake/tree/kernel-patches)
 
@@ -59,7 +59,9 @@ Requires **ARM64**, root with **KernelSU / KernelSU Next** capable of loading an
 
 ## Installation
 
-1. [**Download the latest flashable ZIP**](https://github.com/Mobilelegends74/hma-uidfake/releases/download/v0.3.6-fork/hma-uidfake-fork-0.3.6.zip).
+Since **0.3.7-fork**, custom kernels without an Android suffix can be identified using CRC references from build-ID-verified live modules. Only a unique candidate with no observed CRC mismatch is selected; insufficient evidence is rejected. Kernel admission checks are never bypassed. See [changes](CHANGELOG.md).
+
+1. [**Download the latest flashable ZIP**](https://github.com/Mobilelegends74/hma-uidfake/releases/download/v0.3.7-fork/hma-uidfake-fork-0.3.7.zip).
 2. In KernelSU Next, open **Modules** → **Install from storage** and select the ZIP.
 3. The installer detects both the kernel KMI and the Android **system language**. Russian Android → Russian help, About text and status; all other languages → English. Feature labels remain in English.
 4. Perform **one normal reboot**. No `allow_load` file and no second reboot are required.

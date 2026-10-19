@@ -21,7 +21,7 @@ uidfake_select() {
   mkdir -p "$_select_dir/state"
   printf '' >"$_select_dir/state/selected-kmi"
   if [ ! -x "$_select_dir/kmi-tool" ]; then
-    uidfake_status "$_select_dir" '[KMI_TOOL] Missing executable kmi-tool; reinstall TEST-KMI ZIP'
+    uidfake_status "$_select_dir" '[KMI_TOOL] Missing executable kmi-tool; reinstall module ZIP'
     return 1
   fi
   _selected_kmi="$("$_select_dir/kmi-tool" select "$_select_dir" 2>"$_select_dir/state/kmi.log")"

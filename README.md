@@ -7,7 +7,7 @@
 **Ядровой модуль для KernelSU Next, дополняющий скрытие приложений HMA / HMA-OSS.**
 
 [![Build](https://img.shields.io/github/actions/workflow/status/Mobilelegends74/hma-uidfake/build.yml?branch=main&label=Build&style=flat-square)](https://github.com/Mobilelegends74/hma-uidfake/actions/workflows/build.yml)
-[![Latest Release](https://img.shields.io/badge/Latest_release-v0.3.6--fork-orange?style=flat-square)](https://github.com/Mobilelegends74/hma-uidfake/releases/latest)
+[![Latest Release](https://img.shields.io/badge/Latest_release-v0.3.7--fork-orange?style=flat-square)](https://github.com/Mobilelegends74/hma-uidfake/releases/latest)
 [![Downloads](docs/assets/downloads.svg)](https://github.com/Mobilelegends74/hma-uidfake/releases)
 [![License](https://img.shields.io/badge/License-GPL--2.0-blue?style=flat-square)](LICENSE)
 [![Architecture](https://img.shields.io/badge/Arch-arm64-5a81d8?style=flat-square)](#требования)
@@ -15,7 +15,7 @@
 
 **Русский** · [English](README_EN.md)
 
-[![Скачать последнюю версию](https://img.shields.io/badge/⬇_Скачать_последнюю_версию-ZIP-2e9c82?style=for-the-badge)](https://github.com/Mobilelegends74/hma-uidfake/releases/download/v0.3.6-fork/hma-uidfake-fork-0.3.6.zip)
+[![Скачать последнюю версию](https://img.shields.io/badge/⬇_Скачать_последнюю_версию-ZIP-2e9c82?style=for-the-badge)](https://github.com/Mobilelegends74/hma-uidfake/releases/download/v0.3.7-fork/hma-uidfake-fork-0.3.7.zip)
 
 [![Патчи для ядра](https://img.shields.io/badge/Патчи_для_ядра-Built--in_UIDFAKE-6d43d6?style=for-the-badge&logo=linux&logoColor=white)](https://github.com/Mobilelegends74/hma-uidfake/tree/kernel-patches)
 
@@ -68,7 +68,9 @@
 
 ## Установка
 
-1. Скачайте **[последний установочный ZIP](https://github.com/Mobilelegends74/hma-uidfake/releases/download/v0.3.6-fork/hma-uidfake-fork-0.3.6.zip)**.
+Начиная с **0.3.7-fork**, кастомные ядра без Android-суффикса могут определяться по ABI-данным реально загруженных модулей с проверенным build ID. Выбирается только однозначный кандидат без обнаруженных несовпадений CRC; при недостатке данных загрузка отклоняется. Загрузка не обходит проверки ядра. [Изменения 0.3.7](docs/releases/v0.3.7-fork.md).
+
+1. Скачайте **[последний установочный ZIP](https://github.com/Mobilelegends74/hma-uidfake/releases/download/v0.3.7-fork/hma-uidfake-fork-0.3.7.zip)**.
 2. Откройте KernelSU Next → **Модули** → **Установить из хранилища** и выберите ZIP.
 3. Установщик определит KMI текущего ядра и **системный язык Android**. Русский Android → русские справка, About и статус; любой другой язык → английский. Названия функций сохраняются на английском.
 4. Перезагрузите устройство **один раз** обычным способом. Дополнительный файл `allow_load` создавать не нужно.

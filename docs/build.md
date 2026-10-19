@@ -12,8 +12,8 @@ jobs.
 
 The zip also carries `sync-tool` (built from `src/tools`) and `lkmloader` (built from the
 `external/lkmloader` submodule, an upstream MIT project pinned by `.gitmodules` + gitlink).
-`lkmloader` is what the module's scripts load the ko with: it does not depend on a particular
-root solution, which is why it is bundled.
+The bundled legacy `lkmloader` is not called by installation or boot scripts. Since 0.3.7,
+`kmi-tool` selects a verified candidate and loads the unchanged file using `finit_module(flags=0)`.
 Clone with `--recurse-submodules`, or run `git submodule update --init`.
 
 ## Tests

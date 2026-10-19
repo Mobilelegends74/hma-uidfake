@@ -1,5 +1,7 @@
 # 0.3.6-fork TEST-KMI — custom kernel identification
 
+Historical test-branch instructions: the device-tested implementation was promoted to **0.3.7-fork**. For the published package use [release instructions](releases/v0.3.7-fork.md); references below to unchanged main/releases describe the earlier TEST-KMI stage.
+
 Тестовая ветка: `test/kmi-custom-kernel-v036`. Это не новый релиз.
 ZIP и имя модуля помечены **TEST-KMI**. Main, теги и v0.3.6-fork не изменяются.
 
