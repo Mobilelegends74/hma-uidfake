@@ -16,6 +16,8 @@
 
 [![Download latest ZIP](https://img.shields.io/badge/⬇_Download_latest_version-ZIP-2e9c82?style=for-the-badge)](https://github.com/Mobilelegends74/hma-uidfake/releases/download/v0.3.6-fork/hma-uidfake-fork-0.3.6.zip)
 
+[![Kernel patches](https://img.shields.io/badge/Kernel_patches-Built--in_UIDFAKE-6d43d6?style=for-the-badge&logo=linux&logoColor=white)](https://github.com/Mobilelegends74/hma-uidfake/tree/kernel-patches)
+
 [Release notes](https://github.com/Mobilelegends74/hma-uidfake/releases) · [Report an issue](https://github.com/Mobilelegends74/hma-uidfake/issues) · [GitHub Actions](https://github.com/Mobilelegends74/hma-uidfake/actions)
 
 </div>
