@@ -50,7 +50,7 @@ std::string zstring(const std::vector<unsigned char> &b, std::size_t off) {
 std::set<std::string> identities(const std::string &value,
                                  const std::string &version) {
   const std::regex pattern(
-      "(^|[^a-zA-Z0-9])android([0-9]+)(-[0-9]+[.][0-9]+)?([^a-zA-Z0-9.]|$)");
+      "(^|[^a-zA-Z0-9])android([0-9]+)(-[0-9]+[.][0-9]+)?(?=[^a-zA-Z0-9.]|$)");
   std::set<std::string> out;
   for (auto i = std::sregex_iterator(value.begin(), value.end(), pattern);
        i != std::sregex_iterator(); ++i) {
@@ -103,11 +103,29 @@ Module inspect(const std::filesystem::path &path) {
   };
   const auto names =
       slice(at<Elf64_Shdr>(b, h.e_shoff + h.e_shstrndx * sizeof(Elf64_Shdr)));
+  std::set<std::string> imports, versioned;
+  bool symtab = false;
   for (unsigned i = 1; i < h.e_shnum; ++i) {
     auto s = at<Elf64_Shdr>(b, h.e_shoff + i * sizeof(Elf64_Shdr));
     if (s.sh_type == SHT_NOBITS)
       continue;
     const auto name = zstring(names, s.sh_name);
+    if (s.sh_type == SHT_SYMTAB) {
+      if (symtab || s.sh_link >= h.e_shnum ||
+          s.sh_entsize != sizeof(Elf64_Sym) || s.sh_size % sizeof(Elf64_Sym))
+        throw std::runtime_error("invalid module symbol table");
+      symtab = true;
+      const auto symbols = slice(s);
+      const auto strings =
+          slice(at<Elf64_Shdr>(b, h.e_shoff + s.sh_link * sizeof(Elf64_Shdr)));
+      for (std::size_t n = sizeof(Elf64_Sym); n < symbols.size();
+           n += sizeof(Elf64_Sym)) {
+        const auto symbol = at<Elf64_Sym>(symbols, n);
+        if (symbol.st_shndx == SHN_UNDEF &&
+            ELF64_ST_BIND(symbol.st_info) == STB_GLOBAL)
+          imports.insert(zstring(strings, symbol.st_name));
+      }
+    }
     if (name == ".modinfo" || name == ".note.gnu.build-id" ||
         name == "__versions" || name == "__version_ext_names" ||
         name == "__version_ext_crcs") {
@@ -123,7 +141,8 @@ Module inspect(const std::filesystem::path &path) {
     const auto equal = item.find('=');
     if (equal != std::string::npos) {
       auto key = item.substr(0, equal), value = item.substr(equal + 1);
-      if (key == "name" || key == "vermagic" || key == "srcversion") {
+      if (key == "name" || key == "vermagic" || key == "srcversion" ||
+          key == "uidfake_kmi") {
         if (!result.info.emplace(key, value).second)
           throw std::runtime_error("duplicate module identity field");
       }
@@ -133,6 +152,10 @@ Module inspect(const std::filesystem::path &path) {
   // A real version table, including module_layout, is mandatory. No version
   // bytes or undefined symbols are removed/rewritten by this tool.
   auto &versions = sections["__versions"];
+  auto record = [&](const std::string &name, uint64_t crc) {
+    if (name.empty() || !crc || !versioned.insert(name).second)
+      throw std::runtime_error("invalid/duplicate CRC version record");
+  };
   if (!versions.empty()) {
     if (versions.size() % 64)
       throw std::runtime_error("malformed module symbol versions");
@@ -140,8 +163,7 @@ Module inspect(const std::filesystem::path &path) {
       const auto name = zstring(versions, i + 8);
       if (name.size() >= 56)
         throw std::runtime_error("oversized versioned symbol name");
-      if (name == "module_layout" && at<uint64_t>(versions, i))
-        result.versioned = true;
+      record(name, at<uint64_t>(versions, i));
     }
   } else {
     auto &ext = sections["__version_ext_names"];
@@ -150,12 +172,14 @@ Module inspect(const std::filesystem::path &path) {
     for (std::size_t i = 0; i < ext.size(); ++n) {
       auto name = zstring(ext, i);
       i += name.size() + 1;
-      if (name == "module_layout" && at<uint32_t>(crcs, n * 4))
-        result.versioned = true;
+      record(name, at<uint32_t>(crcs, n * 4));
     }
     if (crcs.size() != n * 4)
       throw std::runtime_error("malformed extended symbol versions");
   }
+  result.versioned = symtab && versioned.count("module_layout");
+  for (const auto &name : imports)
+    result.versioned = result.versioned && versioned.count(name);
   return result;
 }
 
@@ -273,7 +297,12 @@ Result select(const std::filesystem::path &directory,
   try {
     auto m = inspect(path);
     auto ids = identities(m.info["vermagic"], version);
-    if (m.info["name"] != "hma_uidfake" || ids != found || !m.versioned ||
+    const auto embedded = m.info.find("uidfake_kmi");
+    const bool identity_ok =
+        embedded == m.info.end()
+            ? ids == found
+            : embedded->second == chosen && (ids.empty() || ids == found);
+    if (m.info["name"] != "hma_uidfake" || !identity_ok || !m.versioned ||
         m.info["vermagic"].rfind(version + ".", 0) != 0 ||
         !std::regex_search(m.info["vermagic"],
                            std::regex("(^| )modversions( |$)")))

@@ -72,6 +72,9 @@ module_init(uidfake_init);
 module_exit(uidfake_exit);
 
 MODULE_LICENSE("GPL");
+#ifdef UIDFAKE_BUILD_KMI
+MODULE_INFO(uidfake_kmi, UIDFAKE_BUILD_KMI);
+#endif
 MODULE_AUTHOR("local");
 MODULE_DESCRIPTION(
 	"uidfake - kernel-side uid existence guard (netlink-injected policy)");

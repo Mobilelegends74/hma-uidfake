@@ -47,6 +47,9 @@ jobs:
           set -euo pipefail
           KDIR="${KDIR:-/opt/ddk/kdir/${{ matrix.kmi }}}"
           [ -f "$KDIR/Makefile" ] || { echo "no kernel tree at $KDIR"; exit 1; }
+          python3 scripts/restore-modpost.py "/opt/ddk/src/${{ matrix.kmi }}"
+          test -s "$KDIR/Module.symvers"
+          head -n 3 "$KDIR/Module.symvers"
 
           # kbuild writes objects into the M= directory, so build from a stage dir
           # that only contains symlinks to src/ to keep the checkout clean.
