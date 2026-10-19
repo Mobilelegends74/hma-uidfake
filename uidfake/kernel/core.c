@@ -9,6 +9,7 @@
 #include <linux/init.h>
 #include <linux/kdev_t.h>
 #include <linux/mutex.h>
+#include <linux/mm.h>
 #include <linux/namei.h>
 #include <linux/rcupdate.h>
 #include <linux/sched/signal.h>

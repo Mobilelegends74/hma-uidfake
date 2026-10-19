@@ -169,9 +169,12 @@ def integrate(kernel, patch_path):
 
     patch = []
     for name, (before, after) in changes.items():
-        patch.extend(difflib.unified_diff(
+        lines = difflib.unified_diff(
             before.splitlines(True), after.splitlines(True),
-            fromfile='a/' + name if before else '/dev/null', tofile='b/' + name))
+            fromfile='a/' + name if before else '/dev/null', tofile='b/' + name)
+        for line in lines:
+            patch.append(line if line.endswith('\n') else
+                         line + '\n\\ No newline at end of file\n')
     # Preflight every edit before writing any kernel source.
     for name, (_, after) in changes.items():
         dest = kernel / name

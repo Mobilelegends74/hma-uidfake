@@ -19,6 +19,7 @@
 #include <linux/module.h>
 #include <linux/rcupdate.h>
 #include <linux/slab.h>
+#include <linux/mm.h>
 #include <linux/vmalloc.h>
 #include <linux/spinlock.h>
 #include <linux/sched/user.h>

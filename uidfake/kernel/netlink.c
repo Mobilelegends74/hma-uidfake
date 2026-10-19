@@ -10,6 +10,7 @@
 #include <linux/mutex.h>
 #include <linux/module.h>
 #include <linux/slab.h>
+#include <linux/mm.h>
 #include <linux/version.h> /* LINUX_VERSION_CODE for the resv_start_op guard */
 #include <linux/crc32.h>
 #include <linux/string.h>

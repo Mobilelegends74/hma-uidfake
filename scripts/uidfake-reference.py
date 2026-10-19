@@ -39,6 +39,9 @@ for target in selected:
             else:
                 run('patch', '--dry-run', '--batch', '--fuzz=0', '-p1', '-i', str(patch), cwd=tree)
                 run('patch', '--batch', '--fuzz=0', '-p1', '-i', str(patch), cwd=tree)
+            # Validate export syntax too (notably source files without final LF).
+            run('patch', '--reverse', '--dry-run', '--batch', '--fuzz=0',
+                '-p1', '-i', str(patch), cwd=tree)
             run(sys.executable, str(ROOT / 'scripts/uidfake-check-kabi.py'), str(tree))
             before = snapshot(tree)
             repeat = Path(temp) / 'unexpected.patch'
