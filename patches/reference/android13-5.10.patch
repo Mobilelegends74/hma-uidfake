@@ -1845,7 +1845,7 @@
 +#endif /* UIDFAKE_KAUX_H */
 --- /dev/null
 +++ b/drivers/misc/hma_uidfake/include/uidfake.h
-@@ -0,0 +1,31 @@
+@@ -0,0 +1,32 @@
 +/* SPDX-License-Identifier: GPL-2.0 */
 +#ifndef HMA_UIDFAKE_INTERNAL_H
 +#define HMA_UIDFAKE_INTERNAL_H
@@ -1876,4 +1876,5 @@
 +int uidfake_apk_apply(const u32 *blob, u32 len);
 +void uidfake_status_get(struct kaux_status *out);
 +int netlink_init(void);
++void netlink_exit(void);
 +#endif

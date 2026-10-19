@@ -28,4 +28,5 @@ int policy_apply(const u32 *pairs, u32 npairs);
 int uidfake_apk_apply(const u32 *blob, u32 len);
 void uidfake_status_get(struct kaux_status *out);
 int netlink_init(void);
+void netlink_exit(void);
 #endif
