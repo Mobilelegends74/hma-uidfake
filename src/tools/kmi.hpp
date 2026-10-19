@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 #pragma once
+#include <cstdint>
 #include <filesystem>
 #include <map>
 #include <string>
@@ -9,6 +10,7 @@ namespace uidfake::kmi {
 struct Module {
   std::map<std::string, std::string> info;
   std::vector<unsigned char> build_id;
+  std::map<std::string, std::uint64_t> crcs;
   bool versioned = false;
 };
 struct Result {

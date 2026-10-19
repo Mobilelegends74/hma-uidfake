@@ -155,6 +155,7 @@ Module inspect(const std::filesystem::path &path) {
   auto record = [&](const std::string &name, uint64_t crc) {
     if (name.empty() || !crc || !versioned.insert(name).second)
       throw std::runtime_error("invalid/duplicate CRC version record");
+    result.crcs.emplace(name, crc);
   };
   if (!versions.empty()) {
     if (versions.size() % 64)
@@ -200,6 +201,8 @@ Result select(const std::filesystem::path &directory,
   const std::string version = match[1];
   std::set<std::string> found;
   std::string evidence;
+  std::map<std::string, uint64_t> runtime_crcs;
+  bool crc_conflict = false;
   auto merge = [&](const std::string &value, const std::string &source) {
     const auto ids = identities(value, version);
     if (!ids.empty()) {
@@ -228,13 +231,15 @@ Result select(const std::filesystem::path &directory,
   const auto banner = text(root / "proc/version");
   std::smatch banner_release;
   if (std::regex_search(banner, banner_release,
-                        std::regex("^Linux version ([^ \\t\\n]+)")))
+                        std::regex("^Linux version ([^ \t\n]+)")))
     merge(banner_release[1], "kernel /proc/version release");
   if (found.empty()) {
     // Trust on-disk vendor module provenance only when its build-id note
     // byte-matches a currently loaded kernel module, not just a filename or
     // a stale vendor partition. No module is loaded during this discovery.
     unsigned inspected = 0;
+    unsigned verified = 0, crc_modules = 0, unreadable = 0;
+    std::set<std::string> seen;
     std::uintmax_t budget = 256 * 1024 * 1024;
     for (const char *dir :
          {"vendor_dlkm/lib/modules", "system_dlkm/lib/modules",
@@ -281,12 +286,108 @@ Result select(const std::filesystem::path &directory,
           const auto magic = m.info["vermagic"];
           if (magic.rfind(version + ".", 0) != 0)
             continue;
+          if (!seen.insert(name).second)
+            continue;
+          ++verified;
           merge(magic, "loaded build-id verified " + name);
+          // A force-loaded reference cannot attest normal kernel admission.
+          // Failure to read taint is not evidence of an untainted module.
+          std::ifstream taint_file(root / "sys/module" / name / "taint");
+          if (!taint_file || !m.versioned ||
+              cfg.find("CONFIG_MODVERSIONS=y\n") == std::string::npos)
+            continue;
+          std::string taint{std::istreambuf_iterator<char>(taint_file), {}};
+          if (taint.find('F') != std::string::npos)
+            continue;
+          ++crc_modules;
+          for (const auto &[symbol, crc] : m.crcs) {
+            const auto entry = runtime_crcs.emplace(symbol, crc);
+            if (!entry.second && entry.first->second != crc)
+              crc_conflict = true;
+          }
         } catch (const std::exception &) {
           // Unreadable/invalid files do not establish a runtime identity.
+          ++unreadable;
         }
       }
     }
+    evidence += "system scan: entries=" + std::to_string(inspected) +
+                " build_id_verified=" + std::to_string(verified) +
+                " crc_reference_modules=" + std::to_string(crc_modules) +
+                " crc_symbols=" + std::to_string(runtime_crcs.size()) +
+                " unreadable_or_invalid=" + std::to_string(unreadable) + "\n";
+  }
+  if (found.empty() && crc_conflict)
+    return {{},
+            "ABI_CONFLICT",
+            "Verified loaded modules disagree on symbol CRCs; refusing "
+            "inconsistent evidence",
+            evidence};
+  if (found.empty() && !runtime_crcs.empty()) {
+    // This is candidate identification, not a claim of complete ABI coverage.
+    // Require module_layout AND multiple other CRCs, zero observed mismatches,
+    // and a unique candidate. All unseen imports are still checked by the
+    // kernel's unchanged finit_module(flags=0), before module initialization.
+    for (const auto &entry :
+         std::filesystem::directory_iterator(directory / "ko")) {
+      const auto file = entry.path().filename().string();
+      const std::string suffix = "_arm64_hma_uidfake.ko";
+      if (file.size() <= suffix.size() ||
+          file.substr(file.size() - suffix.size()) != suffix)
+        continue;
+      const auto id = file.substr(0, file.size() - suffix.size());
+      if (!std::regex_match(id, std::regex("android[0-9]+-[0-9]+[.][0-9]+")) ||
+          id.substr(id.find('-') + 1) != version)
+        continue;
+      Module candidate;
+      try {
+        candidate = inspect(entry.path());
+        const auto ids = identities(candidate.info["vermagic"], version);
+        if (candidate.info["name"] != "hma_uidfake" ||
+            candidate.info["uidfake_kmi"] != id || !candidate.versioned ||
+            candidate.info["vermagic"].rfind(version + ".", 0) != 0 ||
+            (!ids.empty() && ids != std::set<std::string>{id}) ||
+            !std::regex_search(candidate.info["vermagic"],
+                               std::regex("(^| )modversions( |$)")))
+          return {{},
+                  "MODULE_METADATA",
+                  "Invalid packaged ABI candidate " + id,
+                  evidence};
+      } catch (const std::exception &error) {
+        return {{}, "MODULE_ELF", id + ": " + error.what(), evidence};
+      }
+      unsigned common = 0, mismatch = 0;
+      std::string differences;
+      for (const auto &[symbol, crc] : candidate.crcs) {
+        const auto ref = runtime_crcs.find(symbol);
+        if (ref == runtime_crcs.end())
+          continue;
+        ++common;
+        if (ref->second != crc) {
+          ++mismatch;
+          if (mismatch <= 8)
+            differences += symbol + " ";
+        }
+      }
+      const auto layout = runtime_crcs.find("module_layout");
+      const bool layout_match =
+          layout != runtime_crcs.end() &&
+          candidate.crcs.at("module_layout") == layout->second;
+      evidence +=
+          "ABI candidate=" + id + " common=" + std::to_string(common) +
+          " mismatched=" + std::to_string(mismatch) +
+          " uncovered=" + std::to_string(candidate.crcs.size() - common) +
+          " module_layout=" + (layout_match ? "match" : "missing/mismatch") +
+          (differences.empty() ? "" : " differing=" + differences) + "\n";
+      if (layout_match && common >= 8 && !mismatch)
+        found.insert(id);
+    }
+    if (found.empty())
+      return {{},
+              "ABI_UNCONFIRMED",
+              "No unique supported candidate established by verified "
+              "loaded-module CRCs",
+              evidence};
   }
   if (found.size() != 1)
     return {{},

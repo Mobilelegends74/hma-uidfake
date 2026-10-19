@@ -12,7 +12,7 @@ KMIS = ['android12-5.10', 'android13-5.10', 'android13-5.15', 'android14-5.15',
         'android14-6.1', 'android15-6.6', 'android16-6.12', 'android17-6.18']
 
 
-def elf(path, kmi, name='hma_uidfake', crc=True, machine=183, token=b'a', import_crc=True, embedded=True, bare=False, extended=False):
+def elf(path, kmi, name='hma_uidfake', crc=True, machine=183, token=b'a', import_crc=True, embedded=True, bare=False, extended=False, fingerprint=None):
     version = kmi.split('-', 1)[1]
     branch = kmi.split('-', 1)[0]
     note = struct.pack('<III', 4, 20, 3) + b'GNU\0' + token * 20
@@ -25,12 +25,15 @@ def elf(path, kmi, name='hma_uidfake', crc=True, machine=183, token=b'a', import
     items += [('.strtab', b'\0_printk\0', 3),
               ('.symtab', bytes(24) + struct.pack('<IBBHQQ', 1, 16, 0, 0, 0, 0), 2)]
     if crc:
-        versions = struct.pack('<Q', 0x12345678) + b'module_layout\0'.ljust(56, b'\0')
+        records = {'module_layout': 0x12345678}
         if import_crc:
-            versions += struct.pack('<Q', 0x87654321) + b'_printk\0'.ljust(56, b'\0')
+            records['_printk'] = 0x87654321
+        if fingerprint:
+            records.update(fingerprint)
+        versions = b''.join(struct.pack('<Q', value) + symbol.encode().ljust(56, b'\0') for symbol, value in records.items())
         if extended:
-            names = b'module_layout\0' + (b'_printk\0' if import_crc else b'') + b'\0'
-            crcs = struct.pack('<I', 0x12345678) + (struct.pack('<I', 0x87654321) if import_crc else b'')
+            names = b''.join(symbol.encode() + b'\0' for symbol in records) + b'\0'
+            crcs = b''.join(struct.pack('<I', value) for value in records.values())
             items += [('__version_ext_names', names, 1), ('__version_ext_crcs', crcs, 1)]
         else:
             items += [('__versions', versions, 1)]
@@ -113,6 +116,46 @@ with tempfile.TemporaryDirectory(prefix='uidfake-kmi-test-') as tmp:
     case('5.15.211-android13-8', code='KMI_MISSING', mutate=lambda m, r: (m / 'ko/android13-5.15_arm64_hma_uidfake.ko').unlink())
     case('5.15.211-android13-8', code='ARCH', machine='x86_64')
 
+    def abi_fixture(mod, root, ambiguous=False, mismatch=False, sparse=False,
+                    stale=False, forced=False, conflict=False, extended=False):
+        fp = {f'abi_symbol_{i}': i + 100 for i in range(8 if not sparse else 1)}
+        for kmi in ('android13-5.15', 'android14-5.15'):
+            values = dict(fp)
+            if kmi == 'android14-5.15' and not ambiguous:
+                values['module_layout'] = 0xdeadbeef
+            elf(mod / 'ko' / (kmi + '_arm64_hma_uidfake.ko'), kmi,
+                fingerprint=values, bare=True, extended=extended)
+        for n in range(2 if conflict else 1):
+            name = 'reference' + str(n)
+            values = dict(fp)
+            if mismatch or n:
+                values['abi_symbol_0'] = 0xbad
+            note = elf(root / 'vendor_dlkm/lib/modules' / (name + '.ko'),
+                       'android13-5.15', name=name, fingerprint=values,
+                       bare=True, token=bytes([n + 1]), extended=extended)
+            live = root / 'sys/module' / name
+            (live / 'notes').mkdir(parents=True)
+            (live / 'notes/.note.gnu.build-id').write_bytes(b'stale' if stale else note)
+            (live / 'taint').write_text('F' if forced else 'OE')
+
+    abi_config = 'CONFIG_MODVERSIONS=y\n'
+    case('5.15.211-custom', 'android13-5.15', cfg=abi_config, mutate=abi_fixture)
+    case('5.15.211-custom', 'android13-5.15', cfg=abi_config,
+         mutate=lambda m, r: abi_fixture(m, r, extended=True))
+    case('5.15.211-custom', code='KMI_AMBIGUOUS', cfg=abi_config,
+         mutate=lambda m, r: abi_fixture(m, r, ambiguous=True))
+    case('5.15.211-custom', code='ABI_UNCONFIRMED', cfg=abi_config,
+         mutate=lambda m, r: abi_fixture(m, r, mismatch=True))
+    case('5.15.211-custom', code='ABI_UNCONFIRMED', cfg=abi_config,
+         mutate=lambda m, r: abi_fixture(m, r, sparse=True))
+    case('5.15.211-custom', code='KMI_UNKNOWN', cfg=abi_config,
+         mutate=lambda m, r: abi_fixture(m, r, stale=True))
+    case('5.15.211-custom', code='KMI_UNKNOWN', cfg=abi_config,
+         mutate=lambda m, r: abi_fixture(m, r, forced=True))
+    case('5.15.211-custom', code='KMI_UNKNOWN', mutate=abi_fixture)
+    case('5.15.211-custom', code='ABI_CONFLICT', cfg=abi_config,
+         mutate=lambda m, r: abi_fixture(m, r, conflict=True))
+
     # Real compiled .ko metadata, when called by the pack CI after eight builds.
     real = Path(os.environ.get('UIDFAKE_TEST_KO_DIR', ROOT / 'build/ko'))
     if real.exists():
@@ -123,6 +166,29 @@ with tempfile.TemporaryDirectory(prefix='uidfake-kmi-test-') as tmp:
             result = subprocess.run([str(tool), 'fixture', str(real.parent), str(root), release, 'aarch64'], capture_output=True, text=True)
             assert result.returncode == 0 and result.stdout.strip() == kmi, (kmi, result.stderr)
             print('PASS actual built ELF', kmi)
+        # Optional local replay of tester-supplied binaries. Never bundle or
+        # upload device files: CI runs only the synthetic ABI regressions.
+        reference = os.environ.get('UIDFAKE_TEST_REFERENCE_KO')
+        note = os.environ.get('UIDFAKE_TEST_REFERENCE_NOTE')
+        if reference and note:
+            import shutil
+            root = tmp / 'device-replay'
+            (root / 'proc').mkdir(parents=True)
+            (root / 'proc/config.gz').write_bytes(gzip.compress(b'CONFIG_MODVERSIONS=y\n'))
+            dst = root / 'vendor_dlkm/lib/modules/cfg80211.ko'
+            dst.parent.mkdir(parents=True)
+            shutil.copyfile(reference, dst)
+            live = root / 'sys/module/cfg80211'
+            (live / 'notes').mkdir(parents=True)
+            shutil.copyfile(note, live / 'notes/.note.gnu.build-id')
+            # OE comes from the tester's /proc/modules snapshot; this is a
+            # replay fixture, not an additional observation on their phone.
+            (live / 'taint').write_text('OE')
+            result = subprocess.run([str(tool), 'fixture', str(real.parent), str(root),
+                                     '5.15.211-g093e3da978e7', 'aarch64'], capture_output=True, text=True)
+            print(result.stderr)
+            assert result.returncode == 0 and result.stdout.strip() == 'android13-5.15', result.stderr
+            print('PASS local device ABI replay; no LKM was loaded')
     # Boot-path mock: a kernel rejection must not reach ksud/lkmloader or
     # try another candidate. These are shell doubles, never real load syscalls.
     boot = tmp / 'boot'
