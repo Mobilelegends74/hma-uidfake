@@ -2,15 +2,17 @@ name: build
 
 on:
   push:
-    branches: [main, release/v0.3.6-fork, build/android14-6.1-compat, feature/webui-audited-build-v2, feature/ru-en-webui-fork-readme, test/context-help-status-v036]
-    tags: ["v*"]
+    branches: [test/kmi-custom-kernel-v036]
     paths-ignore:
       - 'README.md'
       - 'README_EN.md'
       - 'docs/**'
   pull_request:
-    branches: [main, build/android14-6.1-compat]
+    branches: [test/kmi-custom-kernel-v036]
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   # One job per KMI, built inside the matching DDK container.
@@ -67,11 +69,7 @@ jobs:
     name: pack module zip
     runs-on: ubuntu-latest
     needs: lkm
-    # The tag run publishes from this job, where the zip is: an artifact cannot
-    # be searched for by a name that is certain (see the upload below), and a
-    # download of it can hand the zip back unpacked.
-    permissions:
-      contents: write
+    # TEST-KMI artifacts only. No release/tag write permissions.
     steps:
       - uses: actions/checkout@v7
         with:
@@ -87,7 +85,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y nlohmann-json3-dev
+          sudo apt-get install -y nlohmann-json3-dev g++ zlib1g-dev
       - uses: nttld/setup-ndk@v1
         id: ndk
         with:
@@ -144,9 +142,14 @@ jobs:
           unzip -Z1 "$zip" | grep -qx 'webroot/help.js'
           unzip -p "$zip" module.prop | grep -q '^description=❌ Not working$'
           unzip -Z1 "$zip" | grep -qx 'webroot/locale.js'
-          unzip -p "$zip" module.prop | grep -q '^name=HMA UID Fake fork$'
+          unzip -p "$zip" module.prop | grep -q '^name=HMA UID Fake fork \[TEST-KMI\]$'
           unzip -Z1 "$zip" | grep -qx 'webroot/style.css'
           unzip -Z1 "$zip" | grep -qx 'load.sh'
+          unzip -Z1 "$zip" | grep -qx 'kmi-tool'
+          if unzip -p "$zip" load.sh | grep -Eq 'ksud insmod|lkmloader.*\$'; then
+            echo "Unsafe alternate loader in TEST-KMI boot path"
+            exit 1
+          fi
           if unzip -p "$zip" post-fs-data.sh | grep -q allow_load; then
             echo "Manual activation requirement must not exist"
             exit 1
@@ -161,61 +164,12 @@ jobs:
             exit 1
           fi
           sha256sum "$zip"
+          mv "$zip" "${zip%.zip}-TEST-KMI.zip"
       - uses: actions/upload-artifact@v7
         with:
-          name: module-zip
+          name: TEST-KMI-module-zip
           path: build/dist/*.zip
           # Without this the zip is put inside an archive of the artifact's own,
           # so what a user downloads is a zip holding the module zip. With it the
           # artifact carries the file's name, not the `name:` above.
           archive: false
-      # Publish only when an explicit version tag is pushed, never for README edits.
-      # A single versioned filename is used for each tag (no commit hash in Assets).
-      - name: Give tagged archive its public version name
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: |
-          set -euo pipefail
-          tag="${{ github.ref_name }}"
-          case "$tag" in
-            v[0-9]*-fork) ;;
-            *) echo "Unexpected release tag: $tag"; exit 1 ;;
-          esac
-          number="${tag#v}"
-          number="${number%-fork}"
-          source=$(find build/dist -maxdepth 1 -name 'hma-uidfake-*.zip' -type f -print -quit)
-          test -n "$source"
-          dest="build/dist/hma-uidfake-fork-${number}.zip"
-          test "$source" != "$dest"
-          mv "$source" "$dest"
-          unzip -t "$dest"
-          sha256sum "$dest"
-      - name: Write update.json
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: |
-          set -euo pipefail
-          zip=$(ls build/dist/*.zip)
-          # The packed module.prop already carries what this build computed, so the JSON cannot
-          # disagree with the module it describes.
-          version=$(unzip -p "$zip" module.prop | sed -n 's/^version=//p')
-          code=$(unzip -p "$zip" module.prop | sed -n 's/^versionCode=//p')
-          tag="${{ github.ref_name }}"
-          asset=$(basename "$zip")
-          changelog="https://raw.githubusercontent.com/${{ github.repository }}/$tag/CHANGELOG.md"
-          grep -qF "${version%%+*}" CHANGELOG.md ||
-            { echo "CHANGELOG.md has no entry for $version"; exit 1; }
-          cat > build/dist/update.json <<JSON
-          {
-            "version": "$version",
-            "versionCode": $code,
-            "zipUrl": "https://github.com/${{ github.repository }}/releases/download/$tag/$asset",
-            "changelog": "$changelog"
-          }
-          JSON
-          cat build/dist/update.json
-      - uses: softprops/action-gh-release@v3
-        if: startsWith(github.ref, 'refs/tags/v')
-        with:
-          files: build/dist/*
-          generate_release_notes: true
-      # module.prop points updateJson at releases/latest/download/update.json, so it is this
-      # asset -- not a file in the repository -- that the module manager reads.

@@ -12,6 +12,11 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(nlohmann_json REQUIRED)
 
+add_executable(kmi-tool kmi.cpp kmi_main.cpp)
+target_link_libraries(kmi-tool PRIVATE z)
+target_compile_options(kmi-tool PRIVATE -O2 -Wall -Wextra)
+target_link_options(kmi-tool PRIVATE -s)
+
 add_executable(sync-tool
     abx.cpp
     text_xml.cpp

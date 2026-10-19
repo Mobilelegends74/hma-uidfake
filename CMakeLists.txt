@@ -185,6 +185,7 @@ add_custom_target(ko DEPENDS ${_ko_outputs})
 file(GLOB TOOL_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/tools/*")
 set(UG_TOOLS_BUILD "${CMAKE_BINARY_DIR}/tools-build")
 set(UG_SYNC "${UG_TOOLS_BUILD}/sync-tool")
+set(UG_KMI_TOOL "${UG_TOOLS_BUILD}/kmi-tool")
 # The NDK toolchain restricts find_package to the sysroot by default; nlohmann_json
 # comes from the host distro, so widen the package search scope.
 add_custom_command(OUTPUT "${UG_SYNC}"
@@ -221,6 +222,7 @@ add_custom_command(OUTPUT "${UG_STAGE}/.stamp"
   COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_BINARY_DIR}/module.prop" "${UG_STAGE}/module.prop"
   COMMAND ${CMAKE_COMMAND} -E copy_directory "${KO_DIR}" "${UG_STAGE}/ko"
   COMMAND ${CMAKE_COMMAND} -E copy "${UG_SYNC}" "${UG_STAGE}/sync-tool"
+  COMMAND ${CMAKE_COMMAND} -E copy "${UG_KMI_TOOL}" "${UG_STAGE}/kmi-tool"
   COMMAND ${CMAKE_COMMAND} -E copy "${UG_LKM}" "${UG_STAGE}/lkmloader"
   COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_CURRENT_SOURCE_DIR}/external/lkmloader/LICENSE" "${UG_STAGE}/lkmloader.LICENSE"
   COMMAND ${CMAKE_COMMAND} -E touch "${UG_STAGE}/.stamp"
@@ -231,7 +233,7 @@ add_custom_command(OUTPUT "${UG_STAGE}/.stamp"
 add_custom_command(OUTPUT "${UG_ZIP}"
   COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/dist"
   COMMAND ${CMAKE_COMMAND} -E rm -f "${UG_ZIP}"
-  COMMAND ${CMAKE_COMMAND} -E tar cf "${UG_ZIP}" --format=zip -- ${UG_MODULE_ITEMS} sync-tool lkmloader lkmloader.LICENSE ko
+  COMMAND ${CMAKE_COMMAND} -E tar cf "${UG_ZIP}" --format=zip -- ${UG_MODULE_ITEMS} sync-tool kmi-tool lkmloader lkmloader.LICENSE ko
   WORKING_DIRECTORY "${UG_STAGE}"
   DEPENDS "${UG_STAGE}/.stamp"
   COMMENT "packing ${UG_ZIP}"

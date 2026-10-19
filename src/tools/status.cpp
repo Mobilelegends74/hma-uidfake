@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
 #include "status.hpp"
 
+#include <algorithm>
+
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
@@ -30,16 +32,25 @@ std::filesystem::path module_dir() {
 /* KernelSU module list gets a plain, localized status, not a diagnostic log.
  * The installer's locale.js holds "ru" or "en" and is safe to read as text.
  * No user-created or HMA policy files are inspected for this UI choice. */
-std::string card_description(const std::filesystem::path &dir,
-                             bool working) {
+std::string card_description(const std::filesystem::path &dir, bool working) {
   std::ifstream language{dir / "webroot" / "locale.js"};
   const std::string data{std::istreambuf_iterator<char>{language},
                          std::istreambuf_iterator<char>{}};
-  const bool russian = data.find("HMA_UIDFAKE_INSTALL_LOCALE = \"ru\"") !=
-                       std::string::npos;
+  const bool russian =
+      data.find("HMA_UIDFAKE_INSTALL_LOCALE = \"ru\"") != std::string::npos;
+  std::string reason;
+  if (!working) {
+    std::ifstream diagnostics{dir / "state" / "load.reason"};
+    std::getline(diagnostics, reason);
+    reason.resize(std::min(reason.size(), std::size_t{220}));
+    if (reason.empty())
+      reason = russian ? "Хуки или политика не активны; см. state/sync.log"
+                       : "Hooks or policy inactive; see state/sync.log";
+    reason = " — " + reason;
+  }
   if (russian)
-    return working ? "✅ Работает" : "❌ Не работает";
-  return working ? "✅ Working" : "❌ Not working";
+    return working ? "✅ Работает" : "❌ Не работает" + reason;
+  return working ? "✅ Working" : "❌ Not working" + reason;
 }
 
 /* One config line's value, or empty. */

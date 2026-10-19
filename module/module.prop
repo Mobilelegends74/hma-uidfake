@@ -1,5 +1,5 @@
 id=hma-uidfake
-name=HMA UID Fake fork
+name=HMA UID Fake fork [TEST-KMI]
 # Fallback only: the build replaces these two with the git tag and the short hash.
 version=0.3.6-fork
 versionCode=3006
