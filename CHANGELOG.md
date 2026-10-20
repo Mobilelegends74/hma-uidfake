@@ -1,3 +1,11 @@
+## 0.3.8-test-fork (prerelease — one-action diagnostic archive)
+
+- Add a bottom home-menu diagnostics row using the existing card, icon and spacing system, with Russian/English consent, progress and saved-path feedback.
+- Export logs, live status, rule sources/configs, KMI evidence, kernel config, module references and bounded kernel/Android logs to a validated tar.gz in Download. No network upload or policy/module-loading changes.
+- Bound individual files and commands, preserve missing-data errors, prevent duplicate UI requests and clean temporary private staging after export/failure.
+- Add collector and UI tests for binary fidelity, missing files, size limits, permission/errors, consent, duplicate requests and failed exports. Physical device testing is still required.
+- VersionCode 3008; stable Latest remains 0.3.7-fork. The previously identified package-event policy refresh issue is not changed in this diagnostics-only build.
+
 ## 0.3.7-fork (October 2026 — verified custom-kernel KMI detection)
 
 - Promote the device-tested TEST-KMI implementation to the stable package; versionCode 3007.

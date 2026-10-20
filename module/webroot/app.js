@@ -102,6 +102,7 @@ function firstLine(text) {
 }
 
 const api = {
+  diagnostics: () => runJson("sh " + MODULE_DIR + "/diagnostics.sh"),
   status: () => runJson(TOOL + " --status"),
   packages: () => runJson(TOOL + " --packages"),
   config: () => runJson(TOOL + " --get-config"),
@@ -136,6 +137,7 @@ const ICONS = {
   gear: "M12 9a3 3 0 100 6 3 3 0 000-6zM4 12H2m20 0h-2M12 4V2m0 20v-2",
   info: "M12 3a9 9 0 100 18 9 9 0 000-18zm0 5v.01M12 11v6",
   save: "M12 3v12m0 0l-4-4m4 4l4-4M4 19h16",
+  diagnostics: "M6 3h8l4 4v14H6zM14 3v5h4M8 15h2l1-3 2 6 1-3h2",
   restore: "M12 21V9m0 0L8 13m4-4l4 4M4 5h16",
   help: "M12 3a9 9 0 100 18 9 9 0 000-18zm0 13v.01M9.5 9.5a2.5 2.5 0 114 2c-.8.7-1.5 1-1.5 2",
   plus: "M12 5v14M5 12h14",
@@ -689,8 +691,74 @@ function viewHome(body) {
         trail: [helpButton("about"), icon("next")],
         onClick: () => go("about"),
       }),
+      row({
+        lead: leadIcon("diagnostics"),
+        title: languageText("Сохранить диагностику", "Save diagnostics"),
+        sub: diagnosticsRunning
+          ? languageText("Сбор архива… Пожалуйста, подождите", "Collecting archive… Please wait")
+          : languageText("Журналы и правила в одном архиве", "Logs and rules in one archive"),
+        trail: icon("next"),
+        onClick: saveDiagnostics,
+      }),
     ]),
   );
+}
+
+let diagnosticsRunning = false;
+function saveDiagnostics() {
+  if (diagnosticsRunning) {
+    toast(languageText("Диагностика уже собирается", "Diagnostics are already being collected"));
+    return;
+  }
+  sheet({
+    title: languageText("Сохранить диагностику", "Save diagnostics"),
+    text: languageText(
+      "Архив будет сохранён в Download. Он содержит журналы ядра, сведения об устройстве, названия приложений и правила UIDFAKE/HMA. Передавайте его только тому, кому доверяете. Настройки не изменяются. Сбор может занять до нескольких минут; не закрывайте WebUI.",
+      "The archive will be saved to Download. It contains kernel logs, device details, app names and UIDFAKE/HMA rules. Share it only with someone you trust. Settings are not changed. Collection may take a few minutes; keep WebUI open."
+    ),
+    confirm: languageText("Сохранить архив", "Save archive"),
+    onConfirm: async () => {
+      // Close consent before collection; a later result sheet must not be
+      // closed by the generic sheet handler when this promise completes.
+      if (diagnosticsRunning) return true;
+      closeSheet();
+      diagnosticsRunning = true;
+      render();
+      await guard(languageText("Диагностика", "Diagnostics"), async () => {
+        const result = await api.diagnostics();
+        if (!result || !result.ok || typeof result.path !== "string" ||
+            !/^\/storage\/emulated\/0\/Download\/uidfake-diagnostics-[A-Za-z0-9-]+\.tar\.gz$/.test(result.path)) {
+          throw new Error(languageText("Архив не создан. Проверьте доступ к Download и свободное место.", "Archive was not created. Check Download access and free space."));
+        }
+        sheet({
+          title: languageText("Диагностика сохранена", "Diagnostics saved"),
+          text: languageText("Отправьте этот архив разработчику. Автоматической отправки нет.", "Send this archive to the developer. Nothing is uploaded automatically."),
+          infoOnly: true,
+          confirm: languageText("Готово", "Done"),
+          body: (wrap) => {
+            const path = el("textarea", "field");
+            path.readOnly = true;
+            path.value = result.path;
+            path.style.minHeight = "90px";
+            const copy = el("button", "btn tonal", languageText("Копировать путь", "Copy path"));
+            copy.type = "button";
+            copy.addEventListener("click", async () => {
+              try {
+                if (navigator.clipboard) await navigator.clipboard.writeText(result.path);
+                else { path.select(); if (!document.execCommand("copy")) throw new Error("copy"); }
+                toast("Copied");
+              } catch (_) { toast("Copy failed", "bad"); }
+            });
+            wrap.append(path, copy);
+          },
+          onConfirm: () => false,
+        });
+      });
+      diagnosticsRunning = false;
+      render();
+      return true;
+    },
+  });
 }
 
 function leadIcon(name) {
