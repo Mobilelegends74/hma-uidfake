@@ -1,0 +1,37 @@
+name: Publish diagnostics TEST (no rebuild)
+
+on:
+  push:
+    branches: [test/diagnostics-038]
+    paths: [.github/workflows/publish-diagnostics-test.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    if: github.repository == 'Mobilelegends74/hma-uidfake' && github.ref == 'refs/heads/test/diagnostics-038'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify existing build and publish only its prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh run view 39457804161 --json conclusion --jq .conclusion)" = success
+          test "$(gh run view 39457804161 --json headSha --jq .headSha)" = 778fee092ad71f0e0c43ac911510ebf31daf2cfb
+          stable=$(gh api "repos/$GH_REPO/releases/latest" --jq .tag_name)
+          test "$stable" = v0.3.7-fork
+          gh release download v0.3.8-test-fork --pattern hma-uidfake-fork-0.3.8-test.zip --pattern SHA256SUMS
+          sha256sum -c SHA256SUMS
+          unzip -t hma-uidfake-fork-0.3.8-test.zip
+          unzip -p hma-uidfake-fork-0.3.8-test.zip module.prop | grep -q '^version=0[.]3[.]8-test-fork+778fee0$'
+          unzip -p hma-uidfake-fork-0.3.8-test.zip module.prop | grep -q '^versionCode=3008$'
+          unzip -Z1 hma-uidfake-fork-0.3.8-test.zip | grep -qx diagnostics.sh
+          gh release edit v0.3.8-test-fork --draft=false --prerelease=true --latest=false
+          test "$(gh api "repos/$GH_REPO/releases/latest" --jq .tag_name)" = "$stable"
+          gh release view v0.3.8-test-fork --json url,isDraft,isPrerelease,assets
