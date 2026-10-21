@@ -57,8 +57,9 @@ test -s out/Module.symvers
 stage="$task_root/stage/android16-6.12"
 mkdir -p "$stage" "$project/out-oneplus"
 for f in "$project"/src/*; do ln -s "$f" "$stage/$(basename "$f")"; done
-make O=out M="$stage" UIDFAKE_VARIANT=oneplus-6.12.38 modules
+make O=out M="$stage" KMI=android16-6.12 UIDFAKE_VARIANT=oneplus-6.12.38 modules
 cp "$stage/hma_uidfake.ko" "$project/out-oneplus/android16-6.12-oneplus-6.12.38_arm64_hma_uidfake.ko"
 cp out/Module.symvers "$project/out-oneplus/kernel-Module.symvers"
 cp out/.config "$project/out-oneplus/kernel.config"
 printf '%s\n' "source=$source_commit" "module_layout=$layout" "gendwarf_stable=${KBUILD_GENDWARFKSYMS_STABLE:-0}" > "$project/out-oneplus/provenance.txt"
+(cd "$project" && git ls-files -z src ':!src/tools/**' | sort -z | xargs -0 sha256sum) > "$project/out-oneplus/src.manifest.sha256"
