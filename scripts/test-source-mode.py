@@ -58,4 +58,7 @@ assert 'if (!policy_published_ ||' in sync
 assert 'netlink_.push({})' in sync
 assert 'if (rule_mode() == RuleMode::Manual)' in sync
 assert '"rule_mode"' in sync and '"active_config"' in sync
+watcher = Path('src/tools/watcher.cpp').read_text()
+assert '.path = kPackagesXml' in watcher
+assert 'source-mode' in Path('src/tools/paths.cpp').read_text()
 print('OK: explicit source, stale/empty/deleted manual config, external preference, invalid preference, first empty push and package resync')

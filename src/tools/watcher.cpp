@@ -146,6 +146,14 @@ void Watcher::apply_watches() {
                           .filter = want.names,
                           .app_root = false,
                           .warned = was_warned(want.path)});
+  // /data/app can change before PackageManager commits its UID database.
+  // Watch the database itself as well, including atomic replace/delete events.
+  // Its full path is distinct from the HMA /data/system directory watch.
+  fresh.push_back(Watch{.path = kPackagesXml,
+                        .mask = kFileEvents,
+                        .filter = {},
+                        .app_root = false,
+                        .warned = was_warned(kPackagesXml)});
   fresh.push_back(Watch{.path = kAppRoot,
                         .mask = kAppDirEvents,
                         .filter = {},

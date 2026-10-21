@@ -1,4 +1,11 @@
-## 0.3.10-test-fork (prerelease — rule-source and ABI test build)
+## 0.3.11-test-fork (prerelease — rule-source and ABI test build)
+
+- Final test build based on 0.3.8 diagnostics: explicit external/manual mode, no stale manual takeover, missing-source policy cleanup and package UID refresh.
+- Watch packages.xml itself, including atomic replacement, so an early /data/app event cannot leave the UID policy based on the old package database.
+- Keep bounded CRC-bypass detection, exact-image ABI profiles, source-mode diagnostics and the previously documented Kitsune LKM/source limitation.
+- VersionCode 3011. Intermediate 0.3.9/0.3.10 CI candidates were not published; stable Latest remains 0.3.7.
+
+## 0.3.10-test-fork (internal CI candidate — not published)
 
 - Includes the explicit HMA/HMA-OSS versus Manual mode, stale-policy cleanup, package-event refresh and exact-image CRC checks described below.
 - Extend bounded /dev/kmsg inspection by both record and byte counts: a character device yields one record per read, so a small read-count limit missed early boot evidence of bypassed CRC checks.
