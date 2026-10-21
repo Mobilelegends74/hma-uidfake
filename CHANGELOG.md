@@ -1,3 +1,10 @@
+## 0.3.13 (release — promoted tested build)
+
+- Promote the user-tested 0.3.13 ZIP unchanged; internal version remains `0.3.13-test-fork+a34e3fb`, versionCode 3013. No rebuild or new tag.
+- Since stable 0.3.7: explicit HMA/HMA-OSS versus Manual source, stale-policy clearing, package database resynchronization, one-action diagnostic archive and improved custom-kernel ABI diagnostics.
+- Manual inject skips userspace KMI/ABI preflight after explicit risk confirmation; kernel admission remains unchanged. Automatic boot selection retains checks. Loader/syncer locks prevent duplicate instances.
+- Update RU/EN landing pages, download links and instructions. [Release notes](docs/releases/v0.3.13-fork.md).
+
 ## 0.3.11-test-fork (prerelease — rule-source and ABI test build)
 
 - Final test build based on 0.3.8 diagnostics: explicit external/manual mode, no stale manual takeover, missing-source policy cleanup and package UID refresh.

@@ -10,6 +10,10 @@ The selected kernel module is loaded at post-fs-data/service. An already loaded 
 
 **Recovery:** kernel-inline hooks can cause boot failure on incompatible systems. Make a backup of your current boot image and confirm working recovery procedures. To inhibit loading on the next boot, create `/data/adb/hma-uidfake/disable_load`; remove it to re-enable. Removing a marker never unloads hooks already live in the kernel. You can also disable/remove the module through KernelSU or recovery when possible.
 
-The WebUI's standalone policy file `/data/adb/hma-uidfake/config.json` overrides HMA-OSS rules; it is not created until you choose to save new independent rules. Normal installs use HMA-OSS as before.
+The default rule source is HMA/HMA-OSS. The standalone file `/data/adb/hma-uidfake/config.json` is used only after explicitly selecting Manual mode. Saving/importing that file does not switch modes or override external synchronization. Missing selected configs clear the previous UID policy.
+
+If the module is absent, **Manual inject** offers the eight packaged KMIs. After explicit risk confirmation it skips UIDFAKE's KMI/ABI preflight and passes the chosen file to `finit_module(flags=0)`. The kernel can still reject it. It does not flash a kernel, force-load, rewrite CRC/vermagic, replace a loaded module or persist an unchecked boot override. An incompatible module may crash the device. Automatic boot selection retains its checks.
+
+The bottom **Save diagnostics** button exports a private archive to Download, including the manual attempt log. Review it before sharing; it contains package names and rules.
 
 This is still an experimental kernel-hook module; Action compilation cannot substitute for physical boot tests of every kernel.

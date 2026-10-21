@@ -7,14 +7,14 @@
 **Kernel-side UID visibility guard for KernelSU Next — a companion to HMA and HMA-OSS.**
 
 [![Build](https://img.shields.io/github/actions/workflow/status/Mobilelegends74/hma-uidfake/build.yml?branch=main&label=Build&style=flat-square)](https://github.com/Mobilelegends74/hma-uidfake/actions/workflows/build.yml)
-[![Latest release](https://img.shields.io/badge/Latest_release-v0.3.7--fork-orange?style=flat-square)](https://github.com/Mobilelegends74/hma-uidfake/releases/latest)
+[![Latest release](https://img.shields.io/badge/Latest_release-v0.3.13-orange?style=flat-square)](https://github.com/Mobilelegends74/hma-uidfake/releases/latest)
 [![Downloads](docs/assets/downloads.svg)](https://github.com/Mobilelegends74/hma-uidfake/releases)
 [![GPL-2.0](https://img.shields.io/badge/License-GPL--2.0-blue?style=flat-square)](LICENSE)
 [![Languages](https://img.shields.io/badge/WebUI-Русский%20%2F%20English-3bba9d?style=flat-square)](#webui--languages)
 
 [Русская версия](README.md) · **English**
 
-[![Download latest ZIP](https://img.shields.io/badge/⬇_Download_latest_version-ZIP-2e9c82?style=for-the-badge)](https://github.com/Mobilelegends74/hma-uidfake/releases/download/v0.3.7-fork/hma-uidfake-fork-0.3.7.zip)
+[![Download latest ZIP](https://img.shields.io/badge/⬇_Download_latest_version-ZIP-2e9c82?style=for-the-badge)](https://github.com/Mobilelegends74/hma-uidfake/releases/download/v0.3.13-test-fork/hma-uidfake-fork-0.3.13-test.zip)
 
 [![Kernel patches](https://img.shields.io/badge/Kernel_patches-Built--in_UIDFAKE-6d43d6?style=for-the-badge&logo=linux&logoColor=white)](https://github.com/Mobilelegends74/hma-uidfake/tree/kernel-patches)
 
@@ -61,7 +61,7 @@ Requires **ARM64**, root with **KernelSU / KernelSU Next** capable of loading an
 
 Since **0.3.7-fork**, custom kernels without an Android suffix can be identified using CRC references from build-ID-verified live modules. Only a unique candidate with no observed CRC mismatch is selected; insufficient evidence is rejected. Kernel admission checks are never bypassed. See [changes](CHANGELOG.md).
 
-1. [**Download the latest flashable ZIP**](https://github.com/Mobilelegends74/hma-uidfake/releases/download/v0.3.7-fork/hma-uidfake-fork-0.3.7.zip).
+1. [**Download the latest flashable ZIP**](https://github.com/Mobilelegends74/hma-uidfake/releases/download/v0.3.13-test-fork/hma-uidfake-fork-0.3.13-test.zip).
 2. In KernelSU Next, open **Modules** → **Install from storage** and select the ZIP.
 3. The installer detects both the kernel KMI and the Android **system language**. Russian Android → Russian help, About text and status; all other languages → English. Feature labels remain in English.
 4. Perform **one normal reboot**. No `allow_load` file and no second reboot are required.
@@ -75,7 +75,13 @@ The WebUI shows the **actual number of live kernel policy pairs**, rather than a
 
 Search and manage apps, create and edit templates, copy and restore policies, change the theme, and inspect the current rule source. All major settings and confirmation dialogs are localized.
 
-**Important:** saving an independent JSON policy switches precedence away from the HMA / HMA-OSS policy; the UI asks for confirmation before the first such save. Technical package identifiers and config keys are never translated.
+**Rule source:** HMA/HMA-OSS is the default. Explicitly select **Manual** to apply independent rules. Saving or importing JSON does not switch modes; saved manual settings remain inactive in external mode. If the selected config disappears, the previous UID policy is cleared. Technical package identifiers and config keys are never translated.
+
+**Save diagnostics:** the bottom home-menu button exports logs, configs and kernel details to an archive in Download. Nothing is uploaded automatically. The archive contains package names and rules; share it privately.
+
+**Manual inject:** shown when the kernel module is absent. Select a packaged KMI and confirm **Accept risk — load**. The selected `.ko` reaches the kernel loader without UIDFAKE's KMI/ABI preflight; kernel admission checks still apply and may reject it. This is a one-shot attempt, not flashing a kernel. Normal automatic selection runs again after reboot. Compatibility is not guaranteed.
+
+**Release 0.3.13** promotes the device-tested ZIP without rebuilding. Its existing tag, filename and internal version retain `test`; GitHub marks it as a regular release. [Changes](docs/releases/v0.3.13-fork.md).
 
 ## Compatibility and limitations
 
@@ -90,13 +96,14 @@ A separate experimental [HMA-OSS LSPosed PM Exception Fix APK](https://github.co
 - Kernel interception can crash or bootloop incompatible kernels. Back up the boot image and ensure recovery is available before installing.
 - To **disable autoload on the next boot**: `su -c 'touch /data/adb/hma-uidfake/disable_load'`. Remove the marker and reboot to restore autoload. This does not unload already active kernel hooks.
 - Never force-load a `.ko` for a different KMI.
+- Manual injection of an incompatible `.ko` can hang or reboot the device and lose unsaved data, especially on kernels that ignore CRC mismatches. Prepare a recovery path first.
 - This module does not hook Java PackageManager, hide launcher icons, or replace general HMA/HMA-OSS framework filtering.
 
 ## Documentation
 
 [Changelog](CHANGELOG.md) · [Install/recovery notes](module/README.md) · [Build](docs/build.md) · [Design](docs/design.md) · [Issues](https://github.com/Mobilelegends74/hma-uidfake/issues)
 
-When reporting an issue, include Android version, device model, `uname -r`, KernelSU version, the WebUI status and a redacted `state/sync.log`.
+When reporting an issue, include reproduction steps and the archive from **Save diagnostics**, after reviewing it for private data.
 
 ## Credits and license
 
