@@ -650,8 +650,8 @@ function viewHome(body) {
       lead: leadIcon("shield"),
       title: "Manual inject",
       sub: manualInjectRunning
-        ? languageText("Проверка и загрузка…", "Checking and loading…")
-        : languageText("Выбрать ядровой модуль · с проверкой ABI", "Choose a kernel module · ABI checks required"),
+        ? languageText("Попытка загрузки…", "Attempting load…")
+        : languageText("Выбрать .ko · без проверки KMI/ABI модулем", "Choose a .ko · skip userspace KMI/ABI checks"),
       trail: icon("next"),
       onClick: showManualInject,
     })]));
@@ -732,8 +732,8 @@ function showManualInject() {
   sheet({
     title: "Manual inject",
     text: languageText(
-      "Выбирается модуль .ko, а не прошивка ядра. Несовместимый или неподтверждённый KMI будет отклонён. Ручной выбор не обходит CRC, подпись и защиту ядра. Смена правил HMA не требуется.",
-      "Select a .ko module, not a kernel to flash. Incompatible or unverified KMI is rejected. Manual selection does not bypass CRCs, signatures or kernel protection. HMA rules are not changed."
+      "Выбранный .ko будет передан ядру БЕЗ наших проверок KMI/ABI, даже при ранее обнаруженных несовпадениях. Риск зависания, перезагрузки и потери несохранённых данных. Это не прошивка ядра. Само ядро может отказать в загрузке; его защита не отключается. Автоматический режим и правила HMA не меняются.",
+      "The selected .ko goes to the kernel WITHOUT our KMI/ABI checks, even after known mismatches. Risk of hangs, reboots and loss of unsaved data. This does not flash a kernel. The kernel may still reject loading; its protections are not disabled. Automatic mode and HMA rules are unchanged."
     ),
     infoOnly: true,
     confirm: languageText("Закрыть", "Close"),
@@ -753,8 +753,8 @@ function confirmManualInject(candidate) {
   if (manualInjectRunning || !MANUAL_KMIS.includes(candidate)) return;
   sheet({
     title: "Manual inject · " + candidate,
-    text: languageText("Выполнить проверку и загрузить совместимый модуль? При несовпадении загрузки не будет. Успешный результат ещё не подтверждает работу всех хуков на устройстве.", "Check and load the compatible module? A mismatch prevents loading. Success does not confirm every hook works on this device."),
-    confirm: languageText("Проверить и загрузить", "Check and load"),
+    text: languageText("Вы сознательно запускаете загрузку без наших проверок совместимости. Неподходящий .ko может вызвать зависание или перезагрузку. Ядро всё ещё вправе отклонить его. Продолжить на свой риск?", "You are explicitly loading without our compatibility checks. An incompatible .ko may hang or reboot the device. The kernel may still reject it. Continue at your own risk?"),
+    confirm: languageText("Принимаю риск — загрузить", "Accept risk — load"),
     onConfirm: async () => {
       if (manualInjectRunning) return true;
       closeSheet();

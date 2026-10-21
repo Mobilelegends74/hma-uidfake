@@ -14,8 +14,23 @@ int main(int argc, char **argv) {
     struct utsname uts {};
     if (uname(&uts))
       throw std::runtime_error("uname failed");
-    if (argc == 3 && std::string(argv[1]) == "load") {
+    const bool manual = argc == 3 && std::string(argv[1]) == "manual-load";
+    if (argc == 3 && (std::string(argv[1]) == "load" || manual)) {
       const auto file = std::filesystem::path{argv[2]};
+      if (manual) {
+        // File allowlist only, NOT a KMI/ELF/ABI compatibility check. The
+        // manually chosen packaged bytes go straight to the kernel loader.
+        bool packaged = false;
+        for (const char *kmi :
+             {"android12-5.10", "android13-5.10", "android13-5.15",
+              "android14-5.15", "android14-6.1", "android15-6.6",
+              "android16-6.12", "android17-6.18"})
+          packaged |=
+              file.filename() == std::string{kmi} + "_arm64_hma_uidfake.ko";
+        if (!packaged || file.parent_path().filename() != "ko")
+          throw std::runtime_error(
+              "[INVALID_CANDIDATE] Choose a packaged module");
+      }
       // Serialize boot and WebUI requests; lock is released on exit/crash.
       const auto lock_path =
           file.parent_path().parent_path() / "state/load.lock";
@@ -27,20 +42,25 @@ int main(int argc, char **argv) {
       if (std::filesystem::exists("/sys/module/hma_uidfake"))
         throw std::runtime_error(
             "[ALREADY_LOADED] No stacking or hot replacement");
-      const auto preflight = uidfake::kmi::select(
-          file.parent_path().parent_path(), "/", uts.release, uts.machine);
-      if (preflight.selected.empty()) {
-        std::cerr << "[" << preflight.code << "] " << preflight.reason << "\n"
-                  << preflight.evidence;
-        return 1;
+      if (!manual) {
+        const auto preflight = uidfake::kmi::select(
+            file.parent_path().parent_path(), "/", uts.release, uts.machine);
+        if (preflight.selected.empty()) {
+          std::cerr << "[" << preflight.code << "] " << preflight.reason << "\n"
+                    << preflight.evidence;
+          return 1;
+        }
+        if (file.filename() != preflight.selected + "_arm64_hma_uidfake.ko") {
+          std::cerr << "[MANUAL_KMI_MISMATCH] Selected candidate is not the "
+                       "verified KMI: "
+                    << preflight.selected << "\n"
+                    << preflight.evidence;
+          return 1;
+        }
       }
-      if (file.filename() != preflight.selected + "_arm64_hma_uidfake.ko") {
-        std::cerr << "[MANUAL_KMI_MISMATCH] Selected candidate is not the "
-                     "verified KMI: "
-                  << preflight.selected << "\n"
-                  << preflight.evidence;
-        return 1;
-      }
+      if (manual)
+        std::cerr << "[MANUAL_DIRECT] Userspace KMI/ABI preflight skipped by "
+                     "explicit choice; kernel admission still applies\n";
       // No ksud/lkmloader, symbol rewriting, vermagic replacement, force flags,
       // init_module retry or second candidate. The kernel remains the
       // authority.
@@ -66,8 +86,8 @@ int main(int argc, char **argv) {
       result = uidfake::kmi::select(argv[2], argv[3], argv[4], argv[5]);
 #endif
     } else {
-      std::cerr
-          << "usage: kmi-tool select MODULE_DIRECTORY | load MODULE_FILE\n";
+      std::cerr << "usage: kmi-tool select MODULE_DIRECTORY | load MODULE_FILE "
+                   "| manual-load MODULE_FILE\n";
       return 2;
     }
     std::cerr << "[" << result.code << "] " << result.reason << "\n"

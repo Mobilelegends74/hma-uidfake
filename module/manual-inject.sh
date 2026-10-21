@@ -19,16 +19,16 @@ if [ -d /sys/module/hma_uidfake ] || lsmod | grep -q '^hma_uidfake '; then
   exit 1
 fi
 printf '%s\n' "$candidate" > "$moddir/state/manual-requested-kmi"
-# The helper repeats the complete automatic compatibility checks, checks the
-# exact filename, and uses finit_module(flags=0). No bypass for manual mode.
-if "$moddir/kmi-tool" load "$moddir/ko/${candidate}_arm64_hma_uidfake.ko" > "$moddir/state/manual-load.log" 2>&1; then
+# Explicit manual choice skips OUR KMI/ABI preflight completely. The kernel
+# loader still decides whether it accepts the unchanged bytes (flags=0).
+if "$moddir/kmi-tool" manual-load "$moddir/ko/${candidate}_arm64_hma_uidfake.ko" > "$moddir/state/manual-load.log" 2>&1; then
   printf '%s\n' "$candidate" > "$moddir/state/selected-kmi"
   printf '' > "$moddir/state/load.reason"
   # The daemon holds its own exclusive lock. Never kill an existing syncer.
   nohup "$moddir/sync-tool" </dev/null >> "$moddir/state/sync.log" 2>&1 &
   echo '[LOADED] Kernel accepted the module; rule synchronization started'
 else
-  reason=$(head -n 1 "$moddir/state/manual-load.log" | cut -c 1-220)
+  reason=$(grep -E '^\[(KERNEL_REJECTED|KMI_ERROR)\]' "$moddir/state/manual-load.log" | head -n 1 | cut -c 1-220)
   uidfake_status "$moddir" "${reason:-[LOAD_FAILED] Manual load rejected}"
   cat "$moddir/state/manual-load.log"
   exit 1
