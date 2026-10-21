@@ -27,7 +27,10 @@ MODULE_PARM_DESC(debug,
 static void uidfake_debug_off(struct work_struct *work)
 {
 	(void)work;
-	if (static_key_enabled(&uidfake_debug_key)) {
+	/* Use the same jump-label branch as the diagnostic fast path. Some GKI
+	 * kernels do not export static_key_count(), which static_key_enabled()
+	 * calls even though this is only our own boolean debug key. */
+	if (UF_DEBUG_ON()) {
 		static_branch_disable(&uidfake_debug_key);
 		pr_info("uidfake: diagnostics off\n");
 	}
