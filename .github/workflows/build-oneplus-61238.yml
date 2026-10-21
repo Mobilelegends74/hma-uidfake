@@ -1,0 +1,27 @@
+name: Build OnePlus 6.12.38 compatibility
+on:
+  workflow_dispatch:
+  push:
+    branches: [test/oneplus-61238-updates-0315]
+    paths:
+      - scripts/build-oneplus-61238.sh
+      - compat/oneplus-6.12.38/**
+      - .github/workflows/build-oneplus-61238.yml
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build dependencies
+        run: sudo apt-get update && sudo apt-get install -y bc bison flex libssl-dev libelf-dev libdw-dev dwarves zstd libzstd-dev cpio rsync
+      - name: Build source-matched compatibility module
+        run: bash scripts/build-oneplus-61238.sh
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: oneplus-61238-source-build
+          path: out-oneplus/*
+          if-no-files-found: ignore

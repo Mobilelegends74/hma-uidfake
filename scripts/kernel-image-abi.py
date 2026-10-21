@@ -17,6 +17,11 @@ import zipfile
 def exports(image):
     if image[0x38:0x3c] != b'ARM\x64':
         raise ValueError('Not a raw ARM64 Image')
+    # The ARM64 header's image_size includes BSS. Exported BSS variables may
+    # lie past the raw file, but symbol names/namespaces and CRCs may not.
+    memory_size = struct.unpack_from('<Q', image, 0x10)[0] or len(image)
+    if memory_size < len(image) or memory_size > len(image) + 67108864:
+        raise ValueError('Unsupported ARM64 memory image size')
     strings = {m.start() for m in re.finditer(b'module_layout\x00', image)}
     words = array.array('i')
     words.frombytes(image[:len(image) // 4 * 4])
@@ -29,10 +34,10 @@ def exports(image):
         value, name, namespace = struct.unpack_from('<iii', image, pos)
         target = pos + 4 + name
         ns = pos + 8 + namespace
-        if not (0 <= pos + value < len(image) and 0 <= target < len(image)
+        if not (0 <= pos + value < memory_size and 0 <= target < len(image)
                 and 0 <= ns < len(image)):
             return None
-        end = image.find(b'\0', target, target + 192)
+        end = image.find(b'\0', target, target + 4096)
         name = image[target:end] if end >= 0 else b''
         if not re.fullmatch(rb'[a-zA-Z_][a-zA-Z_0-9.]*', name):
             return None
