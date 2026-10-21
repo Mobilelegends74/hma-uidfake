@@ -93,7 +93,7 @@ int main(int argc, char **argv)
 		     "its file and that file's directory, and nothing else");
 	}
 
-	/* HMA-OSS as well: still only the first source is read. */
+	/* HMA-OSS as well: external mode prefers OSS over legacy HMA. */
 	const fs::path oss_file =
 		root / "misc" / "hide_my_applist_Ab3xY" / "config.json";
 	write_config(oss_file);
@@ -101,8 +101,8 @@ int main(int argc, char **argv)
 	     "the config under the random-suffixed directory is found");
 	must(RuleSource::active(sources).has_value() &&
 		     RuleSource::active(sources)->pattern() ==
-			     sources.front().pattern(),
-	     "the first source stays the only one in use");
+			     sources[1].pattern(),
+	     "HMA-OSS takes priority over legacy HMA in external mode");
 	{
 		const auto watches = oss.watches();
 		/*
@@ -138,10 +138,11 @@ int main(int argc, char **argv)
 
 	/* The places this program looks in by default, in their order. */
 	const auto known = RuleSource::known();
-	must(known.size() == 3 && known[0].tool() == Tool::Hma &&
-		     known[1].tool() == Tool::HmaOss &&
-		     known[1].pattern().string().find('*') != std::string::npos,
-	     "HMA first, then HMA-OSS's two places");
+	must(known.size() == 4 && known[0].tool() == Tool::Native &&
+		     known[1].tool() == Tool::Hma &&
+		     known[2].tool() == Tool::HmaOss &&
+		     known[2].pattern().string().find('*') != std::string::npos,
+	     "saved manual config, HMA and OSS candidates; explicit mode decides");
 	must(uidfake::tool_name(Tool::Hma) == "hma" &&
 		     uidfake::tool_name(Tool::HmaOss) == "hma-oss",
 	     "the tools have names");
