@@ -1,5 +1,6 @@
 ## 0.3.15 TEST (OnePlus 6.12.38 and stable updates)
 
+- Align Manual inject choices in a two-column grid and show only the running Linux major/minor branch. Keep explicit risk confirmation and kernel admission unchanged.
 - Add a separate source-built OnePlus / Wild 6.12.38 ABI variant without replacing any of the eight standard KMIs. Audit every imported CRC against the public kernel Image; preserve GENDWARFKSYMS, CFI and normal kernel admission.
 - Extend automatic selection with a build-ID-bound Image profile and unique live-module CRC matching between the two 6.12 variants. Add the extra choice to Manual inject and regression fixtures.
 - Add root-manager update metadata. Offer only non-draft, non-prerelease releases using the versionCode inside the ZIP; prevent rollback and ambiguous duplicate codes. Stable Latest remains 0.3.14 during testing.

@@ -114,6 +114,7 @@ const api = {
     return runJson(TOOL + " --set-source " + mode);
   },
   diagnostics: () => runJson("sh " + MODULE_DIR + "/diagnostics.sh"),
+  kernelVersion: () => runOk("cat /proc/version"),
   status: () => runJson(TOOL + " --status"),
   packages: () => runJson(TOOL + " --packages"),
   config: () => runJson(TOOL + " --get-config"),
@@ -727,8 +728,25 @@ function viewHome(body) {
 }
 
 let manualInjectRunning = false;
-function showManualInject() {
-  if (manualInjectRunning) return;
+let manualChoicesLoading = false;
+function manualKernelChoices(version) {
+  // Match the running Linux branch, not the Android userspace version.
+  const match = /^Linux version (\d+\.\d+)(?:\.|[-\s]|$)/.exec(String(version).trim());
+  return match ? MANUAL_KMIS.filter((candidate) => candidate.split("-")[1] === match[1]) : [];
+}
+
+async function showManualInject() {
+  if (manualInjectRunning || manualChoicesLoading) return;
+  manualChoicesLoading = true;
+  let choices = [];
+  let error = "";
+  try {
+    choices = manualKernelChoices(await api.kernelVersion());
+  } catch (err) {
+    error = firstLine(err.message);
+  } finally {
+    manualChoicesLoading = false;
+  }
   sheet({
     title: "Manual inject",
     text: languageText(
@@ -738,14 +756,22 @@ function showManualInject() {
     infoOnly: true,
     confirm: languageText("Закрыть", "Close"),
     body: (wrap) => {
-      for (const candidate of MANUAL_KMIS) {
-        const label = candidate === "android16-6.12-oneplus-6.12.38"
-          ? "android16-6.12 · OnePlus 6.12.38" : candidate;
-        const button = el("button", "btn tonal", label);
+      if (!choices.length) {
+        wrap.append(note(error || languageText("Для текущей ветки ядра нет вариантов в этом пакете либо не удалось определить ветку ядра.", "No packaged variants for the running kernel branch, or the branch could not be identified.")));
+        return;
+      }
+      const grid = el("div", "manual-kmi-grid");
+      for (const candidate of choices) {
+        const button = el("button", "btn tonal manual-kmi-choice");
+        button.append(el("span", "manual-kmi-name", candidate.split("-").slice(0, 2).join("-")));
+        if (candidate === "android16-6.12-oneplus-6.12.38") {
+          button.append(el("span", "manual-kmi-detail", "OnePlus 6.12.38"));
+        }
         button.type = "button";
         button.addEventListener("click", () => confirmManualInject(candidate));
-        wrap.append(button);
+        grid.append(button);
       }
+      wrap.append(grid);
     },
     onConfirm: () => false,
   });

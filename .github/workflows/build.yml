@@ -240,6 +240,7 @@ jobs:
           python3 scripts/test-stable-update.py
           python3 scripts/test-module-abi.py
           node scripts/test-webui-diagnostics.cjs
+          node scripts/test-webui-manual.cjs
           grep -q 'report_status(active_kernel_policy' src/tools/sync.cpp
           grep -q -- '--get-config' src/tools/sync.cpp
           grep -q -- '--set-config' src/tools/sync.cpp
