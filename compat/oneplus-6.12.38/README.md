@@ -20,8 +20,21 @@ not an arbitrary replacement Module.symvers.
 Run `.github/workflows/build-oneplus-61238.yml` on the test branch. Its script
 `scripts/build-oneplus-61238.sh` pins the OnePlus common source, compiler and Rust
 toolchain and reproduces the upstream SYSVIPC header layout. The kernel build
-generates its own symbol versions; the module is compiled against those native
-outputs with GENDWARFKSYMS and extended modversions retained.
+generates its own `vmlinux.symvers`; the module is compiled against those native
+outputs with GENDWARFKSYMS and extended modversions retained. No final kernel
+Image is built or shipped. Module instructions target generic ARMv8-A, not a
+specific OnePlus CPU.
+
+`vmlinux.btf.xz` is debug type information extracted from the same authenticated
+public Image (SHA256 is recorded in `abi.json`), not a kernel executable or a
+private device file. It provides the actual target's BTF base for external-module
+debug metadata without rebuilding/linking another kernel. Reproduce it with:
+
+```sh
+python3 scripts/kernel-image-btf.py --extract /path/to/reference/Image compat/oneplus-6.12.38/vmlinux.btf.xz
+```
+
+The helper checks both the complete Image SHA256 and the extracted BTF SHA256.
 
 The packaging job checks the source manifest and every imported symbol CRC
 against the original Image using `scripts/check-oneplus-abi.py`. Missing or
