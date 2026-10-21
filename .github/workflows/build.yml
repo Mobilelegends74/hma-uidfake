@@ -91,6 +91,21 @@ jobs:
         with:
           path: out-oneplus
           key: oneplus-61238-${{ hashFiles('src/*.c', 'src/include/**', 'src/Makefile', 'compat/oneplus-6.12.38/kernel.config', 'scripts/build-oneplus-61238.sh') }}
+      - name: Wait for the native seed build if still running
+        if: steps.native-cache.outputs.cache-hit != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 120); do
+            state=$(gh run view 39631748812 --repo "$GITHUB_REPOSITORY" --json status --jq .status)
+            [ "$state" = completed ] && break
+            [ "$attempt" -lt 120 ] || { echo 'Native seed build timed out'; exit 1; }
+            echo "Native compatibility build: $state"
+            sleep 30
+          done
+          conclusion=$(gh run view 39631748812 --repo "$GITHUB_REPOSITORY" --json conclusion --jq .conclusion)
+          [ "$conclusion" = success ] || { echo "Native seed build failed: $conclusion"; exit 1; }
       - uses: actions/download-artifact@v8
         if: steps.native-cache.outputs.cache-hit != 'true'
         continue-on-error: true
