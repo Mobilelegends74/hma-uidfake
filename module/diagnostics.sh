@@ -86,6 +86,7 @@ capture "$work/duck-rules.txt" "$moddir/sync-tool" --list com.eltavine.duckdetec
 capture "$work/packages.json.txt" "$moddir/sync-tool" --packages
 capture "$work/kmi-current.txt" "$moddir/kmi-tool" select "$moddir"
 copy_small /proc/config.gz "$work/kernel/config.gz" 1048576
+copy_small /sys/kernel/notes "$work/kernel/notes.bin" 65536
 capture "$work/kernel/modules.txt" cat /proc/modules
 capture "$work/kernel/dmesg.txt" dmesg
 capture "$work/logs/android-filtered.txt" logcat -b all -d -t 2000 -v threadtime -s \
@@ -96,6 +97,7 @@ done
 
 # Exact rule files only; do not walk app data or collect backups/credentials.
 copy_small "$base/config.json" "$work/configs/uidfake.json" 1048576
+copy_small "$base/source-mode" "$work/configs/source-mode.txt" 256
 copy_small "$moddir/config.json" "$work/configs/legacy-uidfake.json" 1048576
 copy_small /data/user/0/com.tsng.hidemyapplist/files/config.json "$work/configs/hma.json" 1048576
 index=0

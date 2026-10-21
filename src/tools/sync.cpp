@@ -76,8 +76,9 @@ constexpr std::size_t kApkLimit = 10000;
 }
 
 /* Public module-list status is intentionally binary and short. A loaded kernel
- * with a live policy and UID hooks reports 'working'; diagnostics stay in WebUI.
- * 0 active pairs does not hide anything yet, so it reports 'not working'. */
+ * with a live policy and UID hooks reports 'working'; diagnostics stay in
+ * WebUI. 0 active pairs does not hide anything yet, so it reports 'not
+ * working'. */
 [[nodiscard]] bool active_kernel_policy(NetlinkClient &client) {
   const auto st = client.status();
   return st && st->policy_pairs > 0 && st->native > 0 &&
@@ -99,6 +100,8 @@ std::optional<Config> parse_args(int argc, char **argv) {
     const std::string_view arg = argv[i];
     if (arg == "--once") {
       config.once = true;
+    } else if (arg == "--set-source" && i + 1 < argc) {
+      config.set_source = std::string{argv[++i]};
     } else if (arg == "--write-config") {
       config.write_config = true;
     } else if (arg == "--status") {
@@ -130,7 +133,7 @@ std::optional<Config> parse_args(int argc, char **argv) {
 }
 
 const PackageDb *Syncer::packages() {
-  struct stat info{};
+  struct stat info {};
   if (::stat(std::string{kPackagesXml}.c_str(), &info) != 0) {
     Log::warn("cannot read {} (will retry on the next event)", kPackagesXml);
     return nullptr;
@@ -160,13 +163,12 @@ const PackageDb *Syncer::packages() {
 /* One place that reads the source through its rules, with the presets' three
  * sources: the sync, --explain, --list and --template cannot disagree. */
 std::optional<Syncer::OpenedRules>
-Syncer::open_rules(const std::filesystem::path &file,
-                   const PackageDb &packages) {
+Syncer::open_rules(const std::filesystem::path &file, const PackageDb &packages,
+                   Tool tool) {
   std::unique_ptr<Rules> rules;
-  const std::optional<RuleSource> source = RuleSource::active(sources_);
-  if (source && source->tool() == Tool::HmaOss)
+  if (tool == Tool::HmaOss)
     rules = HmaOssRules::load(file);
-  else if (source && source->tool() == Tool::Native)
+  else if (tool == Tool::Native)
     rules = NativeRules::load(file);
   else
     rules = HmaRules::load(file);
@@ -211,10 +213,19 @@ Syncer::open_rules(const std::filesystem::path &file,
 void Syncer::sync_now(std::string_view why) {
   const std::optional<RuleSource> source = RuleSource::active(sources_);
   if (!source) {
+    // A deleted/missing selected config must not leave a ghost kernel policy.
+    // Retry after unlock or config creation, but never silently change mode.
+    if (netlink_.push({})) {
+      pushed_.clear();
+      policy_published_ = true;
+    }
+    callers_.clear();
+    watcher_.arm_retry();
     /* Once per outage: before the unlock this used to repeat on every tick. */
     if (!config_refused_) {
       config_refused_ = true;
-      Log::warn("no readable rule source yet (keeping the previous policy)");
+      Log::warn("selected rule source unavailable; cleared UID policy, waiting "
+                "for config");
       report_status("not working");
     }
     return;
@@ -245,9 +256,16 @@ void Syncer::sync_now(std::string_view why) {
     Log::info("user list readable again");
   }
 
-  const auto opened = open_rules(*file, *packages);
-  if (!opened)
+  const auto opened = open_rules(*file, *packages, source->tool());
+  if (!opened) {
+    if (netlink_.push({})) {
+      pushed_.clear();
+      policy_published_ = true;
+    }
+    report_status("not working");
+    watcher_.arm_retry();
     return;
+  }
   Rules *rules = opened->rules.get();
   const Presets &presets = opened->presets;
   Pairs pairs = rules->expand(*packages, presets);
@@ -278,7 +296,13 @@ void Syncer::sync_now(std::string_view why) {
   const auto same_pair = [](const Pair &a, const Pair &b) {
     return a.caller == b.caller && a.target == b.target;
   };
-  if (!std::ranges::equal(pairs, pushed_, same_pair)) {
+  const auto current = RuleSource::active(sources_);
+  const auto current_file = current ? current->config() : std::nullopt;
+  if (!current || current->tool() != source->tool() || current_file != file) {
+    watcher_.arm_retry();
+    return; // source changed while presets/APKs were being parsed
+  }
+  if (!policy_published_ || !std::ranges::equal(pairs, pushed_, same_pair)) {
     if (!netlink_.push(pairs)) {
       /* The kernel keeps its policy, and this pass
        * asks for a retry: a module loaded a second
@@ -288,6 +312,7 @@ void Syncer::sync_now(std::string_view why) {
       return;
     }
     pushed_.assign(pairs.begin(), pairs.end());
+    policy_published_ = true;
     Log::info("synced {} pair(s) ({})", pairs.size(), why);
     report_status(active_kernel_policy(netlink_) ? "working" : "not working");
   }
@@ -376,7 +401,7 @@ void Syncer::publish_code_dirs() {
     const auto apk = dir->second / "base.apk";
     if (!seen.insert(apk.string()).second)
       continue;
-    struct stat info{};
+    struct stat info {};
     if (::stat(apk.c_str(), &info) != 0)
       continue;
     if (entries.size() >= kApkLimit)
@@ -496,7 +521,7 @@ void Syncer::handle_packages(const std::vector<std::string> &dirs) {
   }
 
   if (changed)
-    publish_code_dirs();
+    sync_now("installed packages changed");
 }
 
 /* One decision, printed with everything it was read
@@ -515,7 +540,7 @@ void Syncer::explain(std::string_view caller, std::string_view target) {
   if (!file)
     return;
 
-  auto opened = open_rules(*file, *packages);
+  auto opened = open_rules(*file, *packages, source->tool());
   if (!opened)
     return;
   Rules *rules = opened->rules.get();
@@ -550,7 +575,7 @@ void Syncer::list_targets(std::string_view caller) {
   const auto file = source->config();
   if (!file)
     return;
-  auto opened = open_rules(*file, *packages);
+  auto opened = open_rules(*file, *packages, source->tool());
   if (!opened)
     return;
   Rules *rules = opened->rules.get();
@@ -612,7 +637,7 @@ void Syncer::template_for(std::string_view caller, bool write) {
   const auto file = source->config();
   if (!file)
     return;
-  auto opened = open_rules(*file, *packages);
+  auto opened = open_rules(*file, *packages, source->tool());
   if (!opened)
     return;
   Rules *rules = opened->rules.get();
@@ -696,6 +721,9 @@ void Syncer::print_status() {
 
   const auto source = RuleSource::active(sources_);
   out["source"] = source ? std::string{tool_name(source->tool())} : "none";
+  out["rule_mode"] = rule_mode_name(rule_mode());
+  const auto active_file = source ? source->config() : std::nullopt;
+  out["active_config"] = active_file ? active_file->string() : "";
 
   const auto native = native_config_file();
   std::error_code ignored;
@@ -856,7 +884,23 @@ bool Syncer::set_config() {
   }
 
   Log::info("wrote {} ({} byte(s))", path.string(), text.size());
-  sync_now("config written");
+  // Editing a saved manual policy never changes the selected mode implicitly.
+  if (rule_mode() == RuleMode::Manual)
+    sync_now("config written");
+  return true;
+}
+
+bool Syncer::set_source(std::string_view mode) {
+  const auto selected = mode == "external" ? RuleMode::External
+                        : mode == "manual" ? RuleMode::Manual
+                                           : RuleMode::Invalid;
+  if (!write_rule_mode(selected)) {
+    std::fprintf(stderr,
+                 "Cannot save rule source (expected external or manual)\n");
+    return false;
+  }
+  sync_now("rule source changed");
+  print_status();
   return true;
 }
 

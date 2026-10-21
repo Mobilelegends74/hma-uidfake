@@ -44,6 +44,7 @@ struct Config {
   bool list_packages = false;
   bool get_config = false;
   bool set_config = false;
+  std::optional<std::string> set_source;
 };
 
 /* Prints the usage line to stderr and returns nullopt on a bad command line. */
@@ -77,6 +78,7 @@ public:
    * same rule a policy that does not fit follows.
    */
   [[nodiscard]] bool set_config();
+  [[nodiscard]] bool set_source(std::string_view mode);
 
   /* Syncs once, then keeps following the files until it is killed. */
   [[nodiscard]] bool run();
@@ -89,7 +91,8 @@ private:
     Presets presets;
   };
   [[nodiscard]] std::optional<OpenedRules>
-  open_rules(const std::filesystem::path &file, const PackageDb &packages);
+  open_rules(const std::filesystem::path &file, const PackageDb &packages,
+             Tool tool);
 
   /* One install or update: the "~~" directories that appeared or went away. */
   void handle_packages(const std::vector<std::string> &dirs);
@@ -121,6 +124,7 @@ private:
   std::map<std::string, std::filesystem::path, std::less<>> code_dirs_;
 
   std::vector<Pair> pushed_;
+  bool policy_published_ = false;
   std::vector<ApkEntry> published_;
 };
 

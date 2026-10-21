@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const vm = require("node:vm");
 const source = fs.readFileSync("module/webroot/app.js", "utf8");
 const ui = source.slice(source.indexOf("function viewHome(body)"), source.indexOf("function leadIcon(name)"));
-function node() { return { children: [], append(...items) { this.children.push(...items); }, style: {}, addEventListener() {} }; }
+function node() { return { children: [], append(...items) { this.children.push(...items); }, style: {}, addEventListener() {}, setAttribute() {} }; }
 
 (async () => {
   for (const russian of [false, true]) {
@@ -18,10 +18,12 @@ function node() { return { children: [], append(...items) { this.children.push(.
       el: node, row: (opts) => opts, card: (rows) => rows,
       statusCard: () => "status", leadIcon: () => "icon", icon: () => "icon",
       helpButton: () => "help", go() {}, render() {},
+      note: (text) => text,
       sheet: (opts) => { currentSheet = opts; },
       closeSheet: () => { currentSheet = null; },
       toast: (message) => messages.push(message),
       navigator: {}, document: {},
+      window: { confirm: () => true },
       api: { diagnostics: async () => { calls++; return { ok: true, path: "/storage/emulated/0/Download/uidfake-diagnostics-20261020-010101-Abc123.tar.gz" }; } },
       guard: async (_, fn) => { try { await fn(); } catch (err) { messages.push(err.message); } },
     };
@@ -49,6 +51,24 @@ function node() { return { children: [], append(...items) { this.children.push(.
     assert.equal(detail.children[0].readOnly, true);
     assert(detail.children[0].value.endsWith(".tar.gz"));
     assert.equal(vm.runInContext("diagnosticsRunning", sandbox), false);
+    const savedConfig = JSON.stringify(sandbox.state.config);
+    let sourceCalls = 0;
+    sandbox.api.setSource = async (mode) => { sourceCalls++; return { rule_mode: mode, active_config: "config.json" }; };
+    await sandbox.switchRuleSource("manual");
+    assert.equal(sandbox.state.status.rule_mode, "manual");
+    await sandbox.switchRuleSource("external");
+    assert.equal(sandbox.state.status.rule_mode, "external");
+    assert.equal(sourceCalls, 2);
+    sandbox.window.confirm = () => false;
+    await sandbox.switchRuleSource("manual");
+    assert.equal(sourceCalls, 2);
+    assert.equal(sandbox.state.status.rule_mode, "external");
+    sandbox.window.confirm = () => true;
+    sandbox.api.setSource = async () => { throw new Error("source write denied"); };
+    await sandbox.switchRuleSource("manual");
+    assert.equal(sandbox.state.status.rule_mode, "external");
+    assert.equal(vm.runInContext("sourceSwitching", sandbox), false);
+    assert.equal(JSON.stringify(sandbox.state.config), savedConfig);
 
     for (const bad of [null, { ok: false }, { ok: true, path: "/etc/passwd" }]) {
       sandbox.api.diagnostics = async () => bad;

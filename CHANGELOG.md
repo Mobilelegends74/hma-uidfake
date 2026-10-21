@@ -1,3 +1,12 @@
+## 0.3.9-test-fork (prerelease — explicit rule source and kernel ABI evidence)
+
+- Add explicit HMA/HMA-OSS versus Manual policy mode, defaulting to external synchronization. Existing manual files remain saved but cannot silently override external rules; obsolete module-directory copies are ignored.
+- Clear stale UID policy when the selected config disappears, push empty policies on first synchronization, monitor source-mode changes and recompute UID rules on package events.
+- Preserve one-action diagnostics; include source-mode and kernel build-ID notes. Update source-mode UI and help in Russian/English.
+- Detect custom kernel CRC-validation bypasses; add complete-import comparison against a build-ID-bound profile extracted from the supplied 5.10 Image and repeat admission preflight before finit_module.
+- The supplied Kitsune 5.10 image still requires a matching source-built LKM: this release improves safe diagnosis, not an unsupported force-loading workaround. See release notes for the unresolved source/ABI mismatch.
+- VersionCode 3009. Stable 0.3.7 and previous test 0.3.8 remain available.
+
 ## 0.3.8-test-fork (prerelease — one-action diagnostic archive)
 
 - Add a bottom home-menu diagnostics row using the existing card, icon and spacing system, with Russian/English consent, progress and saved-path feedback.

@@ -14,6 +14,8 @@ int main(int argc, char **argv) {
       return 2;
 
     uidfake::Syncer syncer(*config);
+    if (config->set_source)
+      return syncer.set_source(*config->set_source) ? 0 : 1;
     if (config->make_template) {
       syncer.template_for(*config->make_template, config->write_config);
       return 0;

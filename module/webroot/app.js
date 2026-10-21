@@ -102,6 +102,10 @@ function firstLine(text) {
 }
 
 const api = {
+  setSource: (mode) => {
+    if (mode !== "external" && mode !== "manual") return Promise.reject(new Error("Invalid source mode"));
+    return runJson(TOOL + " --set-source " + mode);
+  },
   diagnostics: () => runJson("sh " + MODULE_DIR + "/diagnostics.sh"),
   status: () => runJson(TOOL + " --status"),
   packages: () => runJson(TOOL + " --packages"),
@@ -404,18 +408,13 @@ function setTheme(theme) {
 
 /* Write through on every change: the tool validates, keeps one .bak and pushes
  * to the kernel in the same step, so what is on screen is what the kernel has. */
-let standaloneAccepted = false;
 async function persist() {
-  // An independent policy takes precedence over HMA-OSS rules. Never
-  // switch source silently when an HMA policy is currently active.
-  const previous = state.status && state.status.source;
-  if (!standaloneAccepted && previous && previous !== "none" && previous !== "native") {
-    if (!window.confirm(
-      t("Saving will create an independent UID policy. It takes priority over the HMA/HMA-OSS config. Continue?")
-    )) {
-      throw new Error("Independent policy change cancelled");
-    }
-    standaloneAccepted = true;
+  // Saving manual edits never changes the explicitly selected source.
+  if ((!state.status || state.status.rule_mode !== "manual") && !window.confirm(languageText(
+    "Ручные правила будут сохранены, но не активированы. Сейчас используется HMA/HMA-OSS. Для применения отдельно выберите ручной режим на главном экране. Продолжить?",
+    "Manual rules will be saved but not activated. HMA/HMA-OSS is selected. To apply them, explicitly select Manual on the home screen. Continue?"
+  ))) {
+    throw new Error("Independent policy change cancelled");
   }
   await api.save(state.config);
   state.status = await api.status();
@@ -636,6 +635,7 @@ function viewHome(body) {
   body.append(hero);
 
   body.append(statusCard());
+  body.append(sourceModeCard());
 
   const rules = Object.keys(state.config.apps || {}).length;
   const templates = Object.keys(state.config.templates || {}).length;
@@ -645,7 +645,9 @@ function viewHome(body) {
       row({
         lead: leadIcon("apps"),
         title: "Manage apps",
-        sub: rules ? rules + " app" + (rules === 1 ? "" : "s") + " with a rule" : "no rules yet",
+        sub: state.status && state.status.rule_mode !== "manual"
+          ? languageText("Сохранённые ручные правила · не активны", "Saved manual rules · inactive")
+          : rules ? rules + " app" + (rules === 1 ? "" : "s") + " with a rule" : "no rules yet",
         trail: [helpButton("apps"), icon("next")],
         onClick: () => go("apps"),
       }),
@@ -702,6 +704,48 @@ function viewHome(body) {
       }),
     ]),
   );
+}
+
+let sourceSwitching = false;
+function sourceModeCard() {
+  const box = el("div", "card pad");
+  box.append(el("div", "section-title", languageText("Источник правил", "Rule source")));
+  const mode = state.status && state.status.rule_mode;
+  const seg = el("div", "segmented");
+  for (const item of [
+    { id: "external", label: "HMA / HMA-OSS" },
+    { id: "manual", label: languageText("Ручной", "Manual") },
+  ]) {
+    const button = el("button", null, item.label);
+    button.type = "button";
+    button.disabled = sourceSwitching;
+    button.setAttribute("aria-pressed", String(mode === item.id));
+    button.addEventListener("click", () => switchRuleSource(item.id));
+    seg.append(button);
+  }
+  box.append(seg);
+  const active = state.status && state.status.active_config;
+  box.append(note(mode === "manual"
+    ? languageText("Используются только ручные правила из Manage apps. Правила HMA-OSS в этом режиме не добавляются.", "Only manual Manage apps rules are used. HMA-OSS rules are not merged in this mode.")
+    : languageText("Автоматическая синхронизация HMA-OSS (или HMA). Сохранённые ручные правила не влияют на скрытие.", "Automatically follows HMA-OSS (or HMA). Saved manual rules do not affect hiding.")));
+  if (!active) box.append(note(languageText("Ожидание конфига выбранного источника. Старая UID-политика очищается.", "Waiting for the selected source config. Previous UID policy is cleared.")));
+  return box;
+}
+
+async function switchRuleSource(mode) {
+  if (sourceSwitching || (state.status && state.status.rule_mode === mode)) return;
+  if (!window.confirm(languageText(
+    "Сменить источник правил? Текущая политика будет заменена. Сохранённые конфиги не удаляются.",
+    "Switch rule source? The current policy will be replaced. Saved configs are not deleted."
+  ))) return;
+  sourceSwitching = true;
+  render();
+  await guard(languageText("Источник правил", "Rule source"), async () => {
+    state.status = await api.setSource(mode);
+    toast("Saved");
+  });
+  sourceSwitching = false;
+  render();
 }
 
 let diagnosticsRunning = false;
@@ -799,6 +843,7 @@ function statusCard() {
 
   box.append(kv("Rules active in kernel", st.rules == null ? "unavailable" : String(st.rules)));
   box.append(kv("Rule source", st.source === "none" ? "none (idle)" : st.source));
+  if (st.kernel && st.rules === 0) box.append(note(languageText("Модуль загружен, но активных правил нет. Проверьте выбранный источник.", "Module loaded, but no active rules. Check the selected rule source.")));
   if (st.kernel) {
     box.append(
       kv("Syscall hooks", st.kernel.native + " " + t("native") + ", " + st.kernel.compat + " " + t("compat")),
@@ -806,7 +851,7 @@ function statusCard() {
     box.append(kv("APK inodes", String(st.kernel.apk_inodes)));
     if (st.kernel.summary) box.append(kv("Summary", st.kernel.summary));
   }
-  box.append(kv("Config", st.config + (st.config_present ? "" : t(" (absent)"))));
+  box.append(kv("Config", st.active_config || languageText("Конфиг выбранного источника отсутствует", "Selected source config is absent")));
   return box;
 }
 
@@ -1580,8 +1625,8 @@ function viewHelp(body) {
   )));
   box.append(el("div", "section-title", languageText("Как действуют правила HMA-OSS", "How HMA-OSS rules are used")));
   box.append(note(languageText(
-    "Если источник правил — hma-oss, они синхронизируются с ядром автоматически. Раздел Manage apps показывает только самостоятельные правила; сохранение новой JSON-политики переключает источник с HMA-OSS после подтверждения.",
-    "When hma-oss is the active source, its rules are synchronized automatically. Manage apps lists only independent rules; saving a new standalone JSON policy takes priority over HMA-OSS after confirmation."
+    "Выберите источник на главном экране: HMA/HMA-OSS синхронизирует внешние правила, Ручной использует Manage apps. Сохранение или удаление ручных правил не переключает режим. При отсутствии выбранного конфига старая UID-политика очищается.",
+    "Choose the source on the home screen: HMA/HMA-OSS follows external rules, Manual uses Manage apps. Saving or deleting manual rules never switches modes. A missing selected config clears the previous UID policy."
   )));
   body.append(box);
 }

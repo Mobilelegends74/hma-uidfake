@@ -10,7 +10,19 @@
 
 int main(int argc, char **argv) {
   try {
+    struct utsname uts {};
+    if (uname(&uts))
+      throw std::runtime_error("uname failed");
     if (argc == 3 && std::string(argv[1]) == "load") {
+      const auto file = std::filesystem::path{argv[2]};
+      const auto preflight = uidfake::kmi::select(
+          file.parent_path().parent_path(), "/", uts.release, uts.machine);
+      if (preflight.selected.empty() ||
+          file.filename() != preflight.selected + "_arm64_hma_uidfake.ko") {
+        std::cerr << "[" << preflight.code << "] " << preflight.reason << "\n"
+                  << preflight.evidence;
+        return 1;
+      }
       // No ksud/lkmloader, symbol rewriting, vermagic replacement, force flags,
       // init_module retry or second candidate. The kernel remains the
       // authority.
@@ -29,9 +41,6 @@ int main(int argc, char **argv) {
       return 1;
     }
     uidfake::kmi::Result result;
-    struct utsname uts {};
-    if (uname(&uts))
-      throw std::runtime_error("uname failed");
     if (argc == 3 && std::string(argv[1]) == "select") {
       result = uidfake::kmi::select(argv[2], "/", uts.release, uts.machine);
 #ifdef UIDFAKE_KMI_TESTING

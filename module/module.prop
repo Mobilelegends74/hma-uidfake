@@ -1,7 +1,7 @@
 id=hma-uidfake
 name=HMA UID Fake fork [TEST]
 # Fallback only: the build replaces these two with the git tag and the short hash.
-version=0.3.8-test-fork
-versionCode=3008
+version=0.3.9-test-fork
+versionCode=3009
 author=Kodatemitsuru, Mobilelegends74
 description=❌ Not working

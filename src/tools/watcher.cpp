@@ -76,6 +76,9 @@ constexpr std::uint32_t kAppDirEvents =
 } // namespace
 
 bool Watcher::open(std::span<const RuleSource> sources) {
+  std::error_code mode_dir_error;
+  std::filesystem::create_directories(std::filesystem::path{kNativeConfigDir},
+                                      mode_dir_error);
   sources_.assign(sources.begin(), sources.end());
   inotify_.reset(::inotify_init1(IN_CLOEXEC | IN_NONBLOCK));
   if (!inotify_.valid()) {
@@ -119,6 +122,14 @@ void Watcher::apply_watches() {
   std::vector<RuleSource::Watch> wants;
   if (const auto active = RuleSource::active(sources_)) {
     wants = active->watches();
+    // Mode and source creation/deletion must remain visible even while another
+    // source is active (otherwise a manual/external switch requires reboot).
+    for (const auto &source : sources_)
+      for (auto watch : source.watches())
+        if (std::error_code ec;
+            watch.kind == RuleSource::Watch::Kind::Directory &&
+            std::filesystem::is_directory(watch.path, ec))
+          wants.push_back(std::move(watch));
   } else {
     for (const auto &source : sources_)
       for (auto &watch : source.watches())

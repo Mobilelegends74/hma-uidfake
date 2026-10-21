@@ -156,6 +156,32 @@ with tempfile.TemporaryDirectory(prefix='uidfake-kmi-test-') as tmp:
     case('5.15.211-custom', code='ABI_CONFLICT', cfg=abi_config,
          mutate=lambda m, r: abi_fixture(m, r, conflict=True))
 
+    def profile_fixture(mod, root, mismatch=False, wrong_id=False, missing=False):
+        fingerprint = {'module_layout': 0x12345678, '_printk': 0x87654321}
+        folder = mod / 'kernel-profiles'
+        folder.mkdir()
+        lines = ['build_id ' + 'ab' * 20, 'kmi android12-5.10', 'banner Linux version 5.10.269-custom']
+        for name, crc in fingerprint.items():
+            if missing and name == '_printk':
+                continue
+            lines.append(f'crc {name} {crc + int(mismatch):08x}')
+        (folder / 'test.abi').write_text('\n'.join(lines) + '\n')
+        (root / 'sys/kernel').mkdir(parents=True)
+        note = struct.pack('<III', 4, 20, 3) + b'GNU\0' + bytes.fromhex(('cd' if wrong_id else 'ab') * 20)
+        (root / 'sys/kernel/notes').write_bytes(note)
+        (root / 'dev').mkdir()
+        (root / 'dev/kmsg').write_text('vendor: disagrees about version of symbol x, but ignore...\n')
+
+    case('5.10.269-custom', 'android12-5.10', mutate=profile_fixture)
+    case('5.10.269-custom', code='ABI_KERNEL_MISMATCH', mutate=lambda m, r: profile_fixture(m, r, mismatch=True))
+    case('5.10.269-custom', code='PROFILE_ID_UNVERIFIED', mutate=lambda m, r: profile_fixture(m, r, wrong_id=True))
+    case('5.10.269-custom', code='ABI_KERNEL_MISMATCH', mutate=lambda m, r: profile_fixture(m, r, missing=True))
+
+    def bypass_fixture(mod, root):
+        (root / 'dev').mkdir()
+        (root / 'dev/kmsg').write_text('vendor: disagrees about version of symbol x, but ignore...\n')
+    case('5.10.269-android12-9', code='ABI_CHECKS_BYPASSED', mutate=bypass_fixture)
+
     # Real compiled .ko metadata, when called by the pack CI after eight builds.
     real = Path(os.environ.get('UIDFAKE_TEST_KO_DIR', ROOT / 'build/ko'))
     if real.exists():
