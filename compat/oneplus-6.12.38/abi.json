@@ -4,6 +4,7 @@
   "upstream_job": 116952723905,
   "image_sha256": "e8bc9ba3f6d556afb50b7f69ff4cd699f81afd2c3bcddab2c8d395019e84e5dd",
   "build_id": "17975ac76c1fafe0c23e057f7d865b962878279d",
+  "btf_sha256": "3e5a92750d42f9e4181b1191d62663d0e65ea5ecfabc3fc86e273c3b439fa40a",
   "banner": "Linux version 6.12.38-android16-OP-WILD (OnePlus@ubuntu-build) (Android (13290119, +pgo, +bolt, +lto, +mlgo, based on r547379) clang version 20.0.0 (https://android.googlesource.com/toolchain/llvm-project b718bcaf8c198c82f3021447d943401e3ab5bd54), LLD 20.0.0 (/mnt/disks/build-disk/src/android/llvm-r547379-release/out/llvm-project/llvm b718bcaf8c198c82f3021447d943401e3ab5bd54)) #1 SMP PREEMPT Fri Oct 16 12:02:38 UTC 2026",
   "kmi": "android16-6.12",
   "candidate": "android16-6.12-oneplus-6.12.38",

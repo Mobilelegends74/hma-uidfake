@@ -28,7 +28,7 @@ rust_bin=$(find "$task_root/rust" -path '*/1.82.0/bin/rustc' -print -quit)
 bindgen_bin=$(find "$task_root/clang-tools" -path '*/bin/bindgen' -print -quit)
 export PAHOLE="$task_root/pahole/build/pahole"
 test -x "$clang_bin" && test -x "$rust_bin" && test -x "$bindgen_bin" && test -x "$PAHOLE"
-export PATH="$(dirname "$clang_bin"):$(dirname "$rust_bin"):$(dirname "$bindgen_bin"):$PATH"
+export PATH="$(dirname "$PAHOLE"):$(dirname "$clang_bin"):$(dirname "$rust_bin"):$(dirname "$bindgen_bin"):$PATH"
 export LIBCLANG_PATH="$(dirname "$clang_bin")/../lib"
 export ARCH=arm64 LLVM=1 LLVM_IAS=1 CROSS_COMPILE=aarch64-linux-gnu-
 export KBUILD_BUILD_USER=OnePlus KBUILD_BUILD_HOST=ubuntu-build KBUILD_BUILD_VERSION=1
@@ -39,6 +39,7 @@ clang --version
 rustc --version
 bindgen --version
 "$PAHOLE" --version
+kmake() { make PAHOLE="$PAHOLE" "$@"; }
 cd "$task_root/source"
 # Match the upstream task_struct layout change used for SYSVIPC. This is
 # source/header compatibility, not a CRC substitution or loader bypass.
@@ -47,36 +48,41 @@ patch -p1 --fuzz=0 < "$task_root/sysvipc.patch"
 touch -r Makefile include/linux/sched.h
 mkdir -p out
 cp "$project/compat/oneplus-6.12.38/kernel.config" out/.config
-make O=out olddefconfig
+kmake O=out olddefconfig
 scripts/diffconfig "$project/compat/oneplus-6.12.38/kernel.config" out/.config
 for required in CONFIG_GENDWARFKSYMS=y CONFIG_EXTENDED_MODVERSIONS=y CONFIG_CFI_CLANG=y CONFIG_CFI_ICALL_NORMALIZE_INTEGERS=y CONFIG_RUST=y; do
   grep -qx "$required" out/.config || { echo "Required config lost: $required"; exit 1; }
 done
-make -j"$(nproc)" O=out modules_prepare kernel/module/version.o
+kmake -j"$(nproc)" O=out modules_prepare kernel/module/version.o
 layout=$(awk '$1 == "#SYMVER" && $2 == "module_layout" { value=$3 } END { print value }' out/kernel/module/.version.o.cmd)
 echo "Initial source-generated module_layout=$layout"
 if [ "$layout" != 0xe976b219 ]; then
   export KBUILD_GENDWARFKSYMS_STABLE=1
   touch kernel/module/version.c
-  make -j"$(nproc)" O=out kernel/module/version.o
+  kmake -j"$(nproc)" O=out kernel/module/version.o
   layout=$(awk '$1 == "#SYMVER" && $2 == "module_layout" { value=$3 } END { print value }' out/kernel/module/.version.o.cmd)
 fi
 echo "Source-generated module_layout=$layout; target=0xe976b219"
 test "$layout" = 0xe976b219
 # Native kernel modpost creates the real symvers. Do not substitute CRCs from
 # another kernel/header tree or edit the emitted module version sections.
-make -j"$(nproc)" O=out Image
+# Only native Kbuild export data is required. Do not link or package a kernel
+# Image. The BTF base below is from the exact already-built reference kernel.
+kmake -j"$(nproc)" O=out vmlinux.symvers
 # UIDFAKE imports built-in exports only. Preserve the exact native modpost
 # output; compiling unrelated vendor/Rust LKMs is not a prerequisite.
 test -s out/vmlinux.symvers
 cp out/vmlinux.symvers out/Module.symvers
+cd "$project"
+python3 scripts/kernel-image-btf.py --unpack compat/oneplus-6.12.38/vmlinux.btf.xz "$task_root/source/out/vmlinux"
+cd "$task_root/source"
 test -s out/Module.symvers
 stage="$task_root/stage/android16-6.12"
 mkdir -p "$stage" "$project/out-oneplus"
 for f in "$project"/src/*; do ln -s "$f" "$stage/$(basename "$f")"; done
-make O=out M="$stage" KMI=android16-6.12 UIDFAKE_VARIANT=oneplus-6.12.38 modules
+kmake O=out M="$stage" KMI=android16-6.12 UIDFAKE_VARIANT=oneplus-6.12.38 KCFLAGS='-D__ANDROID_COMMON_KERNEL__ -O2 -march=armv8-a' modules
 cp "$stage/hma_uidfake.ko" "$project/out-oneplus/android16-6.12-oneplus-6.12.38_arm64_hma_uidfake.ko"
 cp out/Module.symvers "$project/out-oneplus/kernel-Module.symvers"
 cp out/.config "$project/out-oneplus/kernel.config"
 printf '%s\n' "source=$source_commit" "module_layout=$layout" "gendwarf_stable=${KBUILD_GENDWARFKSYMS_STABLE:-0}" > "$project/out-oneplus/provenance.txt"
-(cd "$project" && git ls-files -z src ':!src/tools/**' | sort -z | xargs -0 sha256sum) > "$project/out-oneplus/src.manifest.sha256"
+(cd "$project" && git ls-files -z src scripts/build-oneplus-61238.sh compat/oneplus-6.12.38/kernel.config ':!src/tools/**' | sort -z | xargs -0 sha256sum) > "$project/out-oneplus/src.manifest.sha256"

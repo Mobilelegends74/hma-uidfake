@@ -24,7 +24,7 @@ if ! diff=$(clang-format --dry-run -Werror "${cxx[@]}" 2>&1); then
 fi
 
 # ---- whitespace and line endings -----------------------------------------
-mapfile -t text < <(git ls-files | grep -vE '\.(png|jpg|gif|zip|ko|apk|jar|so)$')
+mapfile -t text < <(git ls-files | grep -vE '\.(png|jpg|gif|zip|ko|apk|jar|so|xz)$')
 echo "whitespace: ${#text[@]} files"
 for f in "${text[@]}"; do
   # Kernel sources and Makefile recipes are indented with tabs by their own rules, so the tab

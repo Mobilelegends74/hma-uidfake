@@ -21,6 +21,9 @@ jobs:
         with:
           path: ${{ runner.temp }}/oneplus-61238/source/out
           key: oneplus-61238-kdir-${{ hashFiles('compat/oneplus-6.12.38/kernel.config', 'scripts/build-oneplus-61238.sh') }}
+          # Same frozen source/config/compiler; reuse objects from the Image
+          # experiment once, then store the module-SDK context under its key.
+          restore-keys: oneplus-61238-kdir-55beb2b8c68e69f21d6962c15d14226718b104ce4ee3126c7c28a49550810abe
       - name: Build source-matched compatibility module
         run: bash scripts/build-oneplus-61238.sh
       - uses: actions/cache/save@v4
