@@ -3,7 +3,7 @@
 umask 077
 moddir=${0%/*}
 case "${1:-}" in
-  android12-5.10|android13-5.10|android13-5.15|android14-5.15|android14-6.1|android15-6.6|android16-6.12|android17-6.18) candidate=$1 ;;
+  android12-5.10|android13-5.10|android13-5.15|android14-5.15|android14-6.1|android15-6.6|android16-6.12|android17-6.18|android16-6.12-oneplus-6.12.38) candidate=$1 ;;
   *) echo '[INVALID_CANDIDATE] Choose a packaged KMI'; exit 2 ;;
 esac
 [ "$#" -eq 1 ] || exit 2

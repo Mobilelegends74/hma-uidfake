@@ -96,7 +96,8 @@ static long fake_syscall(long nr, ...) {
     subprocess.run(['g++', '-std=c++23', '-Isrc/tools', str(wrapper),
                     'src/tools/kmi.cpp', '-lz', '-o', str(tool)], check=True)
     for kmi in ['android12-5.10', 'android13-5.10', 'android13-5.15', 'android14-5.15',
-                'android14-6.1', 'android15-6.6', 'android16-6.12', 'android17-6.18']:
+                'android14-6.1', 'android15-6.6', 'android16-6.12', 'android17-6.18',
+                'android16-6.12-oneplus-6.12.38']:
         candidate = root / 'ko' / (kmi + '_arm64_hma_uidfake.ko')
         candidate.write_bytes(b'deliberately invalid ELF; test only')
         result = subprocess.run([str(tool), 'manual-load', str(candidate)], capture_output=True, text=True)
@@ -112,4 +113,4 @@ static long fake_syscall(long nr, ...) {
     result = subprocess.run([str(tool), 'manual-load', str(bad)], capture_output=True, text=True)
     assert '[INVALID_CANDIDATE]' in result.stderr
     assert 'MOCK_FINIT_MODULE_FLAGS_0' not in result.stderr
-print('OK: all eight manual choices bypass actual userspace preflight; automatic path still gated; kernel syscall mocked')
+print('OK: all nine manual choices bypass actual userspace preflight; automatic path still gated; kernel syscall mocked')

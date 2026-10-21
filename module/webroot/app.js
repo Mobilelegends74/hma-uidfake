@@ -22,7 +22,7 @@ const MODULE_DIR = "/data/adb/modules/hma-uidfake";
 const TOOL = MODULE_DIR + "/sync-tool";
 const THEME_KEY = "hma-uidfake.theme";
 const REPO_URL = "https://github.com/Mobilelegends74/hma-uidfake";
-const MANUAL_KMIS = ["android12-5.10", "android13-5.10", "android13-5.15", "android14-5.15", "android14-6.1", "android15-6.6", "android16-6.12", "android17-6.18"];
+const MANUAL_KMIS = ["android12-5.10", "android13-5.10", "android13-5.15", "android14-5.15", "android14-6.1", "android15-6.6", "android16-6.12", "android16-6.12-oneplus-6.12.38", "android17-6.18"];
 
 /* ---- talking to sync-tool ---- */
 
@@ -739,7 +739,9 @@ function showManualInject() {
     confirm: languageText("Закрыть", "Close"),
     body: (wrap) => {
       for (const candidate of MANUAL_KMIS) {
-        const button = el("button", "btn tonal", candidate);
+        const label = candidate === "android16-6.12-oneplus-6.12.38"
+          ? "android16-6.12 · OnePlus 6.12.38" : candidate;
+        const button = el("button", "btn tonal", label);
         button.type = "button";
         button.addEventListener("click", () => confirmManualInject(candidate));
         wrap.append(button);

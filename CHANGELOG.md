@@ -1,3 +1,10 @@
+## 0.3.15 TEST (OnePlus 6.12.38 and stable updates)
+
+- Add a separate source-built OnePlus / Wild 6.12.38 ABI variant without replacing any of the eight standard KMIs. Audit every imported CRC against the public kernel Image; preserve GENDWARFKSYMS, CFI and normal kernel admission.
+- Extend automatic selection with a build-ID-bound Image profile and unique live-module CRC matching between the two 6.12 variants. Add the extra choice to Manual inject and regression fixtures.
+- Add root-manager update metadata. Offer only non-draft, non-prerelease releases using the versionCode inside the ZIP; prevent rollback and ambiguous duplicate codes. Stable Latest remains 0.3.14 during testing.
+- VersionCode 3015. [Test notes](docs/releases/v0.3.15-test-fork.md).
+
 ## 0.3.14 (release — static_key_count compatibility fix)
 
 - Remove the debug timer's dependency on `static_key_count`, which caused `Unknown symbol static_key_count (err -2)` on 5.15.220-Wild / vermeer. All eight packaged KMIs are rebuilt and checked for this import; no new imports in android13-5.15.

@@ -5,8 +5,7 @@ on:
     branches: [test/oneplus-61238-updates-0315]
     paths:
       - scripts/build-oneplus-61238.sh
-      - compat/oneplus-6.12.38/**
-      - .github/workflows/build-oneplus-61238.yml
+      - compat/oneplus-6.12.38/kernel.config
 permissions:
   contents: read
 jobs:

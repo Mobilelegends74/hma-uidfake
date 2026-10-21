@@ -35,7 +35,7 @@ uidfake_select() {
   # Treat output as data, never source/eval it. The helper also verifies ELF
   # name, ARM64, branch and intact symbol-version metadata.
   case "$_selected_kmi" in
-    android12-5.10|android13-5.10|android13-5.15|android14-5.15|android14-6.1|android15-6.6|android16-6.12|android17-6.18) ;;
+    android12-5.10|android13-5.10|android13-5.15|android14-5.15|android14-6.1|android15-6.6|android16-6.12|android17-6.18|android16-6.12-oneplus-6.12.38) ;;
     *) uidfake_status "$_select_dir" '[KMI_OUTPUT] Invalid selector result'; return 1 ;;
   esac
   UIDFAKE_KO="$_select_dir/ko/${_selected_kmi}_arm64_hma_uidfake.ko"
