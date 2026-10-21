@@ -29,8 +29,10 @@ function el(tag, cls, text) {
     for (const button of grid.children) {
       assert.equal(button.type, "button");
       assert.equal(button.cls, "btn tonal manual-kmi-choice");
+      assert(!button.children[0].text.toLowerCase().includes("oneplus"));
       button.click();
       assert.equal(clicks.at(-1).split("-")[1], branch);
+      if (clicks.at(-1).includes("oneplus")) assert.equal(button.children[0].text, "android16-6.12.38");
     }
   }
   for (const unknown of ["", "Linux version 4.19.0-custom", "Android 16", "Linux version 5.150.1"]) {

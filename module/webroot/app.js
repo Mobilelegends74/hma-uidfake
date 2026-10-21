@@ -763,10 +763,9 @@ async function showManualInject() {
       const grid = el("div", "manual-kmi-grid");
       for (const candidate of choices) {
         const button = el("button", "btn tonal manual-kmi-choice");
-        button.append(el("span", "manual-kmi-name", candidate.split("-").slice(0, 2).join("-")));
-        if (candidate === "android16-6.12-oneplus-6.12.38") {
-          button.append(el("span", "manual-kmi-detail", "OnePlus 6.12.38"));
-        }
+        const label = candidate === "android16-6.12-oneplus-6.12.38"
+          ? "android16-6.12.38" : candidate;
+        button.append(el("span", "manual-kmi-name", label));
         button.type = "button";
         button.addEventListener("click", () => confirmManualInject(candidate));
         grid.append(button);
@@ -780,7 +779,7 @@ async function showManualInject() {
 function confirmManualInject(candidate) {
   if (manualInjectRunning || !MANUAL_KMIS.includes(candidate)) return;
   sheet({
-    title: "Manual inject · " + candidate,
+    title: "Manual inject · " + (candidate === "android16-6.12-oneplus-6.12.38" ? "android16-6.12.38" : candidate),
     text: languageText("Вы сознательно запускаете загрузку без наших проверок совместимости. Неподходящий .ko может вызвать зависание или перезагрузку. Ядро всё ещё вправе отклонить его. Продолжить на свой риск?", "You are explicitly loading without our compatibility checks. An incompatible .ko may hang or reboot the device. The kernel may still reject it. Continue at your own risk?"),
     confirm: languageText("Принимаю риск — загрузить", "Accept risk — load"),
     onConfirm: async () => {
