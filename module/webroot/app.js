@@ -22,6 +22,7 @@ const MODULE_DIR = "/data/adb/modules/hma-uidfake";
 const TOOL = MODULE_DIR + "/sync-tool";
 const THEME_KEY = "hma-uidfake.theme";
 const REPO_URL = "https://github.com/Mobilelegends74/hma-uidfake";
+const MANUAL_KMIS = ["android12-5.10", "android13-5.10", "android13-5.15", "android14-5.15", "android14-6.1", "android15-6.6", "android16-6.12", "android17-6.18"];
 
 /* ---- talking to sync-tool ---- */
 
@@ -102,6 +103,12 @@ function firstLine(text) {
 }
 
 const api = {
+  inject: async (candidate) => {
+    if (!MANUAL_KMIS.includes(candidate)) throw new Error("Invalid KMI");
+    const result = await execRaw("sh " + MODULE_DIR + "/manual-inject.sh " + candidate);
+    const output = [result.stdout, result.stderr].filter(Boolean).join("\n");
+    return { ok: result.errno === 0 && output.includes("[LOADED]"), output };
+  },
   setSource: (mode) => {
     if (mode !== "external" && mode !== "manual") return Promise.reject(new Error("Invalid source mode"));
     return runJson(TOOL + " --set-source " + mode);
@@ -636,6 +643,19 @@ function viewHome(body) {
 
   body.append(statusCard());
   body.append(sourceModeCard());
+  // Unknown/failed WebUI status is not proof that loading failed. Only show
+  // recovery when the backend explicitly reports no kernel endpoint.
+  if (state.status && state.status.kernel === null) {
+    body.append(card([row({
+      lead: leadIcon("shield"),
+      title: "Manual inject",
+      sub: manualInjectRunning
+        ? languageText("Проверка и загрузка…", "Checking and loading…")
+        : languageText("Выбрать ядровой модуль · с проверкой ABI", "Choose a kernel module · ABI checks required"),
+      trail: icon("next"),
+      onClick: showManualInject,
+    })]));
+  }
 
   const rules = Object.keys(state.config.apps || {}).length;
   const templates = Object.keys(state.config.templates || {}).length;
@@ -704,6 +724,61 @@ function viewHome(body) {
       }),
     ]),
   );
+}
+
+let manualInjectRunning = false;
+function showManualInject() {
+  if (manualInjectRunning) return;
+  sheet({
+    title: "Manual inject",
+    text: languageText(
+      "Выбирается модуль .ko, а не прошивка ядра. Несовместимый или неподтверждённый KMI будет отклонён. Ручной выбор не обходит CRC, подпись и защиту ядра. Смена правил HMA не требуется.",
+      "Select a .ko module, not a kernel to flash. Incompatible or unverified KMI is rejected. Manual selection does not bypass CRCs, signatures or kernel protection. HMA rules are not changed."
+    ),
+    infoOnly: true,
+    confirm: languageText("Закрыть", "Close"),
+    body: (wrap) => {
+      for (const candidate of MANUAL_KMIS) {
+        const button = el("button", "btn tonal", candidate);
+        button.type = "button";
+        button.addEventListener("click", () => confirmManualInject(candidate));
+        wrap.append(button);
+      }
+    },
+    onConfirm: () => false,
+  });
+}
+
+function confirmManualInject(candidate) {
+  if (manualInjectRunning || !MANUAL_KMIS.includes(candidate)) return;
+  sheet({
+    title: "Manual inject · " + candidate,
+    text: languageText("Выполнить проверку и загрузить совместимый модуль? При несовпадении загрузки не будет. Успешный результат ещё не подтверждает работу всех хуков на устройстве.", "Check and load the compatible module? A mismatch prevents loading. Success does not confirm every hook works on this device."),
+    confirm: languageText("Проверить и загрузить", "Check and load"),
+    onConfirm: async () => {
+      if (manualInjectRunning) return true;
+      closeSheet();
+      manualInjectRunning = true;
+      render();
+      let message;
+      try {
+        // Refresh before injection too: another process may have loaded it.
+        state.status = await api.status();
+        if (!state.status || state.status.kernel !== null) throw new Error(languageText("Модуль уже загружен или статус не подтверждён. Обновите страницу.", "Module already loaded or status unconfirmed. Refresh the page."));
+        const result = await api.inject(candidate);
+        message = (result.ok ? languageText("Ядро приняло модуль. Синхронизация запускается.\n", "Kernel accepted the module. Synchronization is starting.\n") : languageText("Модуль не загружен. Причина:\n", "Module not loaded. Reason:\n")) + result.output;
+        state.status = await api.status();
+      } catch (error) {
+        message = error.message;
+      } finally {
+        manualInjectRunning = false;
+        render();
+      }
+      sheet({ title: "Manual inject", text: message, infoOnly: true,
+        confirm: languageText("Закрыть", "Close"), onConfirm: () => false });
+      return true;
+    },
+  });
 }
 
 let sourceSwitching = false;

@@ -14,6 +14,7 @@ function node() { return { children: [], append(...items) { this.children.push(.
     const messages = [];
     const sandbox = {
       state: { config: { apps: {}, templates: {} }, version: "0.3.8-test" },
+      MANUAL_KMIS: ["android12-5.10", "android14-6.1"],
       languageText: (ru, en) => russian ? ru : en,
       el: node, row: (opts) => opts, card: (rows) => rows,
       statusCard: () => "status", leadIcon: () => "icon", icon: () => "icon",
@@ -69,6 +70,30 @@ function node() { return { children: [], append(...items) { this.children.push(.
     assert.equal(sandbox.state.status.rule_mode, "external");
     assert.equal(vm.runInContext("sourceSwitching", sandbox), false);
     assert.equal(JSON.stringify(sandbox.state.config), savedConfig);
+
+    sandbox.state.status = { kernel: null, rule_mode: "external" };
+    let injectCalls = 0;
+    sandbox.api.status = async () => sandbox.state.status;
+    sandbox.api.inject = async () => { injectCalls++; return { ok: false, output: "[ABI_KERNEL_MISMATCH] simulated" }; };
+    const missingBody = node();
+    sandbox.viewHome(missingBody);
+    assert(missingBody.children.some((item) => Array.isArray(item) && item.some((row) => row.title === "Manual inject")));
+    sandbox.confirmManualInject("bad;command");
+    assert.equal(injectCalls, 0);
+    sandbox.confirmManualInject("android12-5.10");
+    assert.equal(injectCalls, 0, "explicit confirmation required");
+    const injectConfirm = currentSheet.onConfirm;
+    await Promise.all([injectConfirm(), injectConfirm()]);
+    assert.equal(injectCalls, 1);
+    assert(currentSheet.text.includes("ABI_KERNEL_MISMATCH"));
+    assert.equal(vm.runInContext("manualInjectRunning", sandbox), false);
+    sandbox.state.status = { kernel: { native: 4 } };
+    const loadedBody = node();
+    sandbox.viewHome(loadedBody);
+    assert(!loadedBody.children.some((item) => Array.isArray(item) && item.some((row) => row.title === "Manual inject")));
+    sandbox.confirmManualInject("android14-6.1");
+    await currentSheet.onConfirm();
+    assert.equal(injectCalls, 1, "recheck must refuse a newly loaded endpoint");
 
     for (const bad of [null, { ok: false }, { ok: true, path: "/etc/passwd" }]) {
       sandbox.api.diagnostics = async () => bad;

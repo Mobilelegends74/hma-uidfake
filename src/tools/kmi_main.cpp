@@ -4,6 +4,7 @@
 #include <cstring>
 #include <fcntl.h>
 #include <iostream>
+#include <sys/file.h>
 #include <sys/syscall.h>
 #include <sys/utsname.h>
 #include <unistd.h>
@@ -15,11 +16,28 @@ int main(int argc, char **argv) {
       throw std::runtime_error("uname failed");
     if (argc == 3 && std::string(argv[1]) == "load") {
       const auto file = std::filesystem::path{argv[2]};
+      // Serialize boot and WebUI requests; lock is released on exit/crash.
+      const auto lock_path =
+          file.parent_path().parent_path() / "state/load.lock";
+      const int lock_fd = open(lock_path.c_str(),
+                               O_CREAT | O_RDWR | O_CLOEXEC | O_NOFOLLOW, 0600);
+      if (lock_fd < 0 || flock(lock_fd, LOCK_EX | LOCK_NB))
+        throw std::runtime_error(
+            "[LOAD_BUSY] Cannot acquire exclusive loader lock");
+      if (std::filesystem::exists("/sys/module/hma_uidfake"))
+        throw std::runtime_error(
+            "[ALREADY_LOADED] No stacking or hot replacement");
       const auto preflight = uidfake::kmi::select(
           file.parent_path().parent_path(), "/", uts.release, uts.machine);
-      if (preflight.selected.empty() ||
-          file.filename() != preflight.selected + "_arm64_hma_uidfake.ko") {
+      if (preflight.selected.empty()) {
         std::cerr << "[" << preflight.code << "] " << preflight.reason << "\n"
+                  << preflight.evidence;
+        return 1;
+      }
+      if (file.filename() != preflight.selected + "_arm64_hma_uidfake.ko") {
+        std::cerr << "[MANUAL_KMI_MISMATCH] Selected candidate is not the "
+                     "verified KMI: "
+                  << preflight.selected << "\n"
                   << preflight.evidence;
         return 1;
       }

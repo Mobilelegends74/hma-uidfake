@@ -7,7 +7,7 @@ capture() {
   shift
   # Bound both execution time and output, retaining command errors in the file.
   # timeout is provided by Android toybox; missing commands are nonfatal.
-  (if timeout 25 "$@"; then rc=0; else rc=$?; fi; printf '\n[exit=%s]\n' "$rc") 2>&1 |
+  (if timeout "${capture_seconds:-25}" "$@"; then rc=0; else rc=$?; fi; printf '\n[exit=%s]\n' "$rc") 2>&1 |
     tail -c 4194304 > "$dest"
 }
 
@@ -74,7 +74,7 @@ capture "$work/device.txt" sh -c '
   getenforce
 '
 copy_small "$moddir/module.prop" "$work/module.prop" 65536
-for name in kmi.log selected-kmi load.reason kernel-load.log sync.log; do
+for name in kmi.log selected-kmi load.reason kernel-load.log sync.log manual-requested-kmi manual-load.log; do
   if [ -r "$moddir/state/$name" ]; then
     tail -c 2097152 "$moddir/state/$name" > "$work/logs/$name" 2>> "$work/manifest.txt"
   else
@@ -82,7 +82,7 @@ for name in kmi.log selected-kmi load.reason kernel-load.log sync.log; do
   fi
 done
 capture "$work/status.json.txt" "$moddir/sync-tool" --status
-capture "$work/duck-rules.txt" "$moddir/sync-tool" --list com.eltavine.duckdetector
+capture_seconds=120 capture "$work/duck-rules.txt" "$moddir/sync-tool" --list com.eltavine.duckdetector
 capture "$work/packages.json.txt" "$moddir/sync-tool" --packages
 capture "$work/kmi-current.txt" "$moddir/kmi-tool" select "$moddir"
 copy_small /proc/config.gz "$work/kernel/config.gz" 1048576
