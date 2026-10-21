@@ -1,3 +1,9 @@
+## 0.3.14 (release — static_key_count compatibility fix)
+
+- Remove the debug timer's dependency on `static_key_count`, which caused `Unknown symbol static_key_count (err -2)` on 5.15.220-Wild / vermeer. All eight packaged KMIs are rebuilt and checked for this import; no new imports in android13-5.15.
+- Keep the jump-label fast path, 60-second diagnostic timeout, source modes and Manual inject unchanged. Add lifecycle tests and an ELF import regression gate in Actions.
+- Promote the existing ZIP without rebuilding or changing assets: internal version `0.3.14-test-fork+6680a1f`, versionCode 3014. Other device-specific incompatibilities remain possible. [Release notes](docs/releases/v0.3.14-fork.md).
+
 ## 0.3.13 (release — promoted tested build)
 
 - Promote the user-tested 0.3.13 ZIP unchanged; internal version remains `0.3.13-test-fork+a34e3fb`, versionCode 3013. No rebuild or new tag.
