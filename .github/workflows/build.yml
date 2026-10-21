@@ -98,20 +98,20 @@ jobs:
         run: |
           set -euo pipefail
           for attempt in $(seq 1 120); do
-            state=$(gh run view 39635074639 --repo "$GITHUB_REPOSITORY" --json status --jq .status)
+            state=$(gh run view 39637634303 --repo "$GITHUB_REPOSITORY" --json status --jq .status)
             [ "$state" = completed ] && break
             [ "$attempt" -lt 120 ] || { echo 'Native seed build timed out'; exit 1; }
             echo "Native compatibility build: $state"
             sleep 30
           done
-          conclusion=$(gh run view 39635074639 --repo "$GITHUB_REPOSITORY" --json conclusion --jq .conclusion)
+          conclusion=$(gh run view 39637634303 --repo "$GITHUB_REPOSITORY" --json conclusion --jq .conclusion)
           [ "$conclusion" = success ] || { echo "Native seed build failed: $conclusion"; exit 1; }
       - uses: actions/download-artifact@v8
         if: steps.native-cache.outputs.cache-hit != 'true'
         continue-on-error: true
         with:
           name: oneplus-61238-source-build
-          run-id: 39635074639
+          run-id: 39637634303
           github-token: ${{ github.token }}
           path: native-build
       - name: Reuse exact sources or rebuild native variant
