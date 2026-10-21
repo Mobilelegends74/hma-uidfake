@@ -1,3 +1,34 @@
+## 0.3.11-test-fork (prerelease — rule-source and ABI test build)
+
+- Final test build based on 0.3.8 diagnostics: explicit external/manual mode, no stale manual takeover, missing-source policy cleanup and package UID refresh.
+- Watch packages.xml itself, including atomic replacement, so an early /data/app event cannot leave the UID policy based on the old package database.
+- Keep bounded CRC-bypass detection, exact-image ABI profiles, source-mode diagnostics and the previously documented Kitsune LKM/source limitation.
+- VersionCode 3011. Intermediate 0.3.9/0.3.10 CI candidates were not published; stable Latest remains 0.3.7.
+
+## 0.3.10-test-fork (internal CI candidate — not published)
+
+- Includes the explicit HMA/HMA-OSS versus Manual mode, stale-policy cleanup, package-event refresh and exact-image CRC checks described below.
+- Extend bounded /dev/kmsg inspection by both record and byte counts: a character device yields one record per read, so a small read-count limit missed early boot evidence of bypassed CRC checks.
+- Add regression coverage for the legacy source fixtures; keep saved manual configs and diagnostics without automatic source takeover.
+- VersionCode 3010. This is a test release, not a working-LKM claim for the unsupported Kitsune image; see the documented source/ABI limitation. Stable Latest remains 0.3.7.
+
+## 0.3.9-test-fork (internal CI candidate — not published)
+
+- Add explicit HMA/HMA-OSS versus Manual policy mode, defaulting to external synchronization. Existing manual files remain saved but cannot silently override external rules; obsolete module-directory copies are ignored.
+- Clear stale UID policy when the selected config disappears, push empty policies on first synchronization, monitor source-mode changes and recompute UID rules on package events.
+- Preserve one-action diagnostics; include source-mode and kernel build-ID notes. Update source-mode UI and help in Russian/English.
+- Detect custom kernel CRC-validation bypasses; add complete-import comparison against a build-ID-bound profile extracted from the supplied 5.10 Image and repeat admission preflight before finit_module.
+- The supplied Kitsune 5.10 image still requires a matching source-built LKM: this release improves safe diagnosis, not an unsupported force-loading workaround. See release notes for the unresolved source/ABI mismatch.
+- VersionCode 3009. Stable 0.3.7 and previous test 0.3.8 remain available.
+
+## 0.3.8-test-fork (prerelease — one-action diagnostic archive)
+
+- Add a bottom home-menu diagnostics row using the existing card, icon and spacing system, with Russian/English consent, progress and saved-path feedback.
+- Export logs, live status, rule sources/configs, KMI evidence, kernel config, module references and bounded kernel/Android logs to a validated tar.gz in Download. No network upload or policy/module-loading changes.
+- Bound individual files and commands, preserve missing-data errors, prevent duplicate UI requests and clean temporary private staging after export/failure.
+- Add collector and UI tests for binary fidelity, missing files, size limits, permission/errors, consent, duplicate requests and failed exports. Physical device testing is still required.
+- VersionCode 3008; stable Latest remains 0.3.7-fork. The previously identified package-event policy refresh issue is not changed in this diagnostics-only build.
+
 ## 0.3.7-fork (October 2026 — verified custom-kernel KMI detection)
 
 - Promote the device-tested TEST-KMI implementation to the stable package; versionCode 3007.

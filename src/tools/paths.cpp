@@ -2,9 +2,68 @@
 #include "paths.hpp"
 
 #include <algorithm>
+#include <cstdlib>
+#include <fcntl.h>
+#include <fstream>
 #include <system_error>
+#include <unistd.h>
 
 namespace uidfake {
+
+RuleMode read_rule_mode(const std::filesystem::path &file) {
+  std::error_code ec;
+  if (!std::filesystem::exists(file, ec))
+    return ec ? RuleMode::Invalid : RuleMode::External;
+  std::ifstream in(file);
+  std::string value, extra;
+  if (!(in >> value) || (in >> extra))
+    return RuleMode::Invalid;
+  if (value == "external")
+    return RuleMode::External;
+  if (value == "manual")
+    return RuleMode::Manual;
+  return RuleMode::Invalid;
+}
+
+RuleMode rule_mode() {
+  return read_rule_mode(std::filesystem::path{kNativeConfigDir} /
+                        "source-mode");
+}
+
+std::string_view rule_mode_name(RuleMode mode) {
+  if (mode == RuleMode::External)
+    return "external";
+  if (mode == RuleMode::Manual)
+    return "manual";
+  return "invalid";
+}
+
+bool write_rule_mode(RuleMode mode) {
+  if (mode == RuleMode::Invalid)
+    return false;
+  const auto dir = std::filesystem::path{kNativeConfigDir};
+  std::error_code ec;
+  std::filesystem::create_directories(dir, ec);
+  if (ec)
+    return false;
+  std::string tmp = (dir / ".source-mode-XXXXXX").string();
+  const int fd = ::mkstemp(tmp.data());
+  if (fd < 0)
+    return false;
+  const std::string value = std::string{rule_mode_name(mode)} + "\n";
+  const bool written = ::write(fd, value.data(), value.size()) ==
+                           static_cast<ssize_t>(value.size()) &&
+                       ::fsync(fd) == 0;
+  ::close(fd);
+  if (written)
+    std::filesystem::rename(tmp, dir / "source-mode", ec);
+  if (!written || ec) {
+    std::filesystem::remove(tmp, ec);
+    return false;
+  }
+  return true;
+}
+
 namespace {
 
 /* /data/user/0/<pkg> is a bind mount of /data/data/<pkg>; a plain adb shell or
@@ -63,16 +122,10 @@ std::string_view tool_name(Tool tool) {
 }
 
 std::vector<RuleSource> RuleSource::known() {
-  /*
-   * The module's own config comes first: with one present the tool never reads
-   * HMA's, so a device can drop the app and keep working. The two app sources
-   * stay behind it, so an existing install whose config is already written
-   * keeps working until the native one appears.
-   */
+  // Saved manual data is separate from external policy. Never resurrect a
+  // deleted primary config through the obsolete module-directory copy.
   return {
       {native_config_file(), Tool::Native},
-      {std::filesystem::path{"/data/adb/modules/hma-uidfake/config.json"},
-       Tool::Native},
       {std::filesystem::path{
            "/data/user/0/com.tsng.hidemyapplist/files/config.json"},
        Tool::Hma},
@@ -84,10 +137,17 @@ std::vector<RuleSource> RuleSource::known() {
 }
 
 std::optional<RuleSource>
-RuleSource::active(const std::vector<RuleSource> &sources) {
-  for (const auto &source : sources)
-    if (source.config())
-      return source;
+RuleSource::active(const std::vector<RuleSource> &sources, RuleMode mode) {
+  if (mode == RuleMode::Invalid)
+    return std::nullopt;
+  // No file-existence priority: saved/empty manual rules cannot override HMA.
+  // External mode prefers OSS, with legacy HMA as a compatibility fallback.
+  for (const auto tool : mode == RuleMode::Manual
+                             ? std::vector<Tool>{Tool::Native}
+                             : std::vector<Tool>{Tool::HmaOss, Tool::Hma})
+    for (const auto &source : sources)
+      if (source.tool() == tool && source.config())
+        return source;
   return std::nullopt;
 }
 
@@ -129,9 +189,9 @@ std::vector<RuleSource::Watch> RuleSource::watches() const {
    * expanded into that cache, and the cache is written after the config that
    * names them, so a change to it has to wake the sync up on its own.
    */
-  const std::vector<std::string> names{pattern_.filename().string(),
-                                       std::string{kPresetCacheNew},
-                                       std::string{kPresetCacheOld}};
+  const std::vector<std::string> names{
+      pattern_.filename().string(), std::string{kPresetCacheNew},
+      std::string{kPresetCacheOld}, "source-mode"};
 
   const auto watch_dir = [&](const std::filesystem::path &watched) {
     watches.push_back(

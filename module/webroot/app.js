@@ -22,6 +22,7 @@ const MODULE_DIR = "/data/adb/modules/hma-uidfake";
 const TOOL = MODULE_DIR + "/sync-tool";
 const THEME_KEY = "hma-uidfake.theme";
 const REPO_URL = "https://github.com/Mobilelegends74/hma-uidfake";
+const MANUAL_KMIS = ["android12-5.10", "android13-5.10", "android13-5.15", "android14-5.15", "android14-6.1", "android15-6.6", "android16-6.12", "android17-6.18"];
 
 /* ---- talking to sync-tool ---- */
 
@@ -102,6 +103,17 @@ function firstLine(text) {
 }
 
 const api = {
+  inject: async (candidate) => {
+    if (!MANUAL_KMIS.includes(candidate)) throw new Error("Invalid KMI");
+    const result = await execRaw("sh " + MODULE_DIR + "/manual-inject.sh " + candidate);
+    const output = [result.stdout, result.stderr].filter(Boolean).join("\n");
+    return { ok: result.errno === 0 && output.includes("[LOADED]"), output };
+  },
+  setSource: (mode) => {
+    if (mode !== "external" && mode !== "manual") return Promise.reject(new Error("Invalid source mode"));
+    return runJson(TOOL + " --set-source " + mode);
+  },
+  diagnostics: () => runJson("sh " + MODULE_DIR + "/diagnostics.sh"),
   status: () => runJson(TOOL + " --status"),
   packages: () => runJson(TOOL + " --packages"),
   config: () => runJson(TOOL + " --get-config"),
@@ -136,6 +148,7 @@ const ICONS = {
   gear: "M12 9a3 3 0 100 6 3 3 0 000-6zM4 12H2m20 0h-2M12 4V2m0 20v-2",
   info: "M12 3a9 9 0 100 18 9 9 0 000-18zm0 5v.01M12 11v6",
   save: "M12 3v12m0 0l-4-4m4 4l4-4M4 19h16",
+  diagnostics: "M6 3h8l4 4v14H6zM14 3v5h4M8 15h2l1-3 2 6 1-3h2",
   restore: "M12 21V9m0 0L8 13m4-4l4 4M4 5h16",
   help: "M12 3a9 9 0 100 18 9 9 0 000-18zm0 13v.01M9.5 9.5a2.5 2.5 0 114 2c-.8.7-1.5 1-1.5 2",
   plus: "M12 5v14M5 12h14",
@@ -402,18 +415,13 @@ function setTheme(theme) {
 
 /* Write through on every change: the tool validates, keeps one .bak and pushes
  * to the kernel in the same step, so what is on screen is what the kernel has. */
-let standaloneAccepted = false;
 async function persist() {
-  // An independent policy takes precedence over HMA-OSS rules. Never
-  // switch source silently when an HMA policy is currently active.
-  const previous = state.status && state.status.source;
-  if (!standaloneAccepted && previous && previous !== "none" && previous !== "native") {
-    if (!window.confirm(
-      t("Saving will create an independent UID policy. It takes priority over the HMA/HMA-OSS config. Continue?")
-    )) {
-      throw new Error("Independent policy change cancelled");
-    }
-    standaloneAccepted = true;
+  // Saving manual edits never changes the explicitly selected source.
+  if ((!state.status || state.status.rule_mode !== "manual") && !window.confirm(languageText(
+    "Ручные правила будут сохранены, но не активированы. Сейчас используется HMA/HMA-OSS. Для применения отдельно выберите ручной режим на главном экране. Продолжить?",
+    "Manual rules will be saved but not activated. HMA/HMA-OSS is selected. To apply them, explicitly select Manual on the home screen. Continue?"
+  ))) {
+    throw new Error("Independent policy change cancelled");
   }
   await api.save(state.config);
   state.status = await api.status();
@@ -634,6 +642,20 @@ function viewHome(body) {
   body.append(hero);
 
   body.append(statusCard());
+  body.append(sourceModeCard());
+  // Unknown/failed WebUI status is not proof that loading failed. Only show
+  // recovery when the backend explicitly reports no kernel endpoint.
+  if (state.status && state.status.kernel === null) {
+    body.append(card([row({
+      lead: leadIcon("shield"),
+      title: "Manual inject",
+      sub: manualInjectRunning
+        ? languageText("Попытка загрузки…", "Attempting load…")
+        : languageText("Выбрать .ko · без проверки KMI/ABI модулем", "Choose a .ko · skip userspace KMI/ABI checks"),
+      trail: icon("next"),
+      onClick: showManualInject,
+    })]));
+  }
 
   const rules = Object.keys(state.config.apps || {}).length;
   const templates = Object.keys(state.config.templates || {}).length;
@@ -643,7 +665,9 @@ function viewHome(body) {
       row({
         lead: leadIcon("apps"),
         title: "Manage apps",
-        sub: rules ? rules + " app" + (rules === 1 ? "" : "s") + " with a rule" : "no rules yet",
+        sub: state.status && state.status.rule_mode !== "manual"
+          ? languageText("Сохранённые ручные правила · не активны", "Saved manual rules · inactive")
+          : rules ? rules + " app" + (rules === 1 ? "" : "s") + " with a rule" : "no rules yet",
         trail: [helpButton("apps"), icon("next")],
         onClick: () => go("apps"),
       }),
@@ -689,8 +713,171 @@ function viewHome(body) {
         trail: [helpButton("about"), icon("next")],
         onClick: () => go("about"),
       }),
+      row({
+        lead: leadIcon("diagnostics"),
+        title: languageText("Сохранить диагностику", "Save diagnostics"),
+        sub: diagnosticsRunning
+          ? languageText("Сбор архива… Пожалуйста, подождите", "Collecting archive… Please wait")
+          : languageText("Журналы и правила в одном архиве", "Logs and rules in one archive"),
+        trail: icon("next"),
+        onClick: saveDiagnostics,
+      }),
     ]),
   );
+}
+
+let manualInjectRunning = false;
+function showManualInject() {
+  if (manualInjectRunning) return;
+  sheet({
+    title: "Manual inject",
+    text: languageText(
+      "Выбранный .ko будет передан ядру БЕЗ наших проверок KMI/ABI, даже при ранее обнаруженных несовпадениях. Риск зависания, перезагрузки и потери несохранённых данных. Это не прошивка ядра. Само ядро может отказать в загрузке; его защита не отключается. Автоматический режим и правила HMA не меняются.",
+      "The selected .ko goes to the kernel WITHOUT our KMI/ABI checks, even after known mismatches. Risk of hangs, reboots and loss of unsaved data. This does not flash a kernel. The kernel may still reject loading; its protections are not disabled. Automatic mode and HMA rules are unchanged."
+    ),
+    infoOnly: true,
+    confirm: languageText("Закрыть", "Close"),
+    body: (wrap) => {
+      for (const candidate of MANUAL_KMIS) {
+        const button = el("button", "btn tonal", candidate);
+        button.type = "button";
+        button.addEventListener("click", () => confirmManualInject(candidate));
+        wrap.append(button);
+      }
+    },
+    onConfirm: () => false,
+  });
+}
+
+function confirmManualInject(candidate) {
+  if (manualInjectRunning || !MANUAL_KMIS.includes(candidate)) return;
+  sheet({
+    title: "Manual inject · " + candidate,
+    text: languageText("Вы сознательно запускаете загрузку без наших проверок совместимости. Неподходящий .ko может вызвать зависание или перезагрузку. Ядро всё ещё вправе отклонить его. Продолжить на свой риск?", "You are explicitly loading without our compatibility checks. An incompatible .ko may hang or reboot the device. The kernel may still reject it. Continue at your own risk?"),
+    confirm: languageText("Принимаю риск — загрузить", "Accept risk — load"),
+    onConfirm: async () => {
+      if (manualInjectRunning) return true;
+      closeSheet();
+      manualInjectRunning = true;
+      render();
+      let message;
+      try {
+        // Refresh before injection too: another process may have loaded it.
+        state.status = await api.status();
+        if (!state.status || state.status.kernel !== null) throw new Error(languageText("Модуль уже загружен или статус не подтверждён. Обновите страницу.", "Module already loaded or status unconfirmed. Refresh the page."));
+        const result = await api.inject(candidate);
+        message = (result.ok ? languageText("Ядро приняло модуль. Синхронизация запускается.\n", "Kernel accepted the module. Synchronization is starting.\n") : languageText("Модуль не загружен. Причина:\n", "Module not loaded. Reason:\n")) + result.output;
+        state.status = await api.status();
+      } catch (error) {
+        message = error.message;
+      } finally {
+        manualInjectRunning = false;
+        render();
+      }
+      sheet({ title: "Manual inject", text: message, infoOnly: true,
+        confirm: languageText("Закрыть", "Close"), onConfirm: () => false });
+      return true;
+    },
+  });
+}
+
+let sourceSwitching = false;
+function sourceModeCard() {
+  const box = el("div", "card pad");
+  box.append(el("div", "section-title", languageText("Источник правил", "Rule source")));
+  const mode = state.status && state.status.rule_mode;
+  const seg = el("div", "segmented");
+  for (const item of [
+    { id: "external", label: "HMA / HMA-OSS" },
+    { id: "manual", label: languageText("Ручной", "Manual") },
+  ]) {
+    const button = el("button", null, item.label);
+    button.type = "button";
+    button.disabled = sourceSwitching;
+    button.setAttribute("aria-pressed", String(mode === item.id));
+    button.addEventListener("click", () => switchRuleSource(item.id));
+    seg.append(button);
+  }
+  box.append(seg);
+  const active = state.status && state.status.active_config;
+  box.append(note(mode === "manual"
+    ? languageText("Используются только ручные правила из Manage apps. Правила HMA-OSS в этом режиме не добавляются.", "Only manual Manage apps rules are used. HMA-OSS rules are not merged in this mode.")
+    : languageText("Автоматическая синхронизация HMA-OSS (или HMA). Сохранённые ручные правила не влияют на скрытие.", "Automatically follows HMA-OSS (or HMA). Saved manual rules do not affect hiding.")));
+  if (!active) box.append(note(languageText("Ожидание конфига выбранного источника. Старая UID-политика очищается.", "Waiting for the selected source config. Previous UID policy is cleared.")));
+  return box;
+}
+
+async function switchRuleSource(mode) {
+  if (sourceSwitching || (state.status && state.status.rule_mode === mode)) return;
+  if (!window.confirm(languageText(
+    "Сменить источник правил? Текущая политика будет заменена. Сохранённые конфиги не удаляются.",
+    "Switch rule source? The current policy will be replaced. Saved configs are not deleted."
+  ))) return;
+  sourceSwitching = true;
+  render();
+  await guard(languageText("Источник правил", "Rule source"), async () => {
+    state.status = await api.setSource(mode);
+    toast("Saved");
+  });
+  sourceSwitching = false;
+  render();
+}
+
+let diagnosticsRunning = false;
+function saveDiagnostics() {
+  if (diagnosticsRunning) {
+    toast(languageText("Диагностика уже собирается", "Diagnostics are already being collected"));
+    return;
+  }
+  sheet({
+    title: languageText("Сохранить диагностику", "Save diagnostics"),
+    text: languageText(
+      "Архив будет сохранён в Download. Он содержит журналы ядра, сведения об устройстве, названия приложений и правила UIDFAKE/HMA. Передавайте его только тому, кому доверяете. Настройки не изменяются. Сбор может занять до нескольких минут; не закрывайте WebUI.",
+      "The archive will be saved to Download. It contains kernel logs, device details, app names and UIDFAKE/HMA rules. Share it only with someone you trust. Settings are not changed. Collection may take a few minutes; keep WebUI open."
+    ),
+    confirm: languageText("Сохранить архив", "Save archive"),
+    onConfirm: async () => {
+      // Close consent before collection; a later result sheet must not be
+      // closed by the generic sheet handler when this promise completes.
+      if (diagnosticsRunning) return true;
+      closeSheet();
+      diagnosticsRunning = true;
+      render();
+      await guard(languageText("Диагностика", "Diagnostics"), async () => {
+        const result = await api.diagnostics();
+        if (!result || !result.ok || typeof result.path !== "string" ||
+            !/^\/storage\/emulated\/0\/Download\/uidfake-diagnostics-[A-Za-z0-9-]+\.tar\.gz$/.test(result.path)) {
+          throw new Error(languageText("Архив не создан. Проверьте доступ к Download и свободное место.", "Archive was not created. Check Download access and free space."));
+        }
+        sheet({
+          title: languageText("Диагностика сохранена", "Diagnostics saved"),
+          text: languageText("Отправьте этот архив разработчику. Автоматической отправки нет.", "Send this archive to the developer. Nothing is uploaded automatically."),
+          infoOnly: true,
+          confirm: languageText("Готово", "Done"),
+          body: (wrap) => {
+            const path = el("textarea", "field");
+            path.readOnly = true;
+            path.value = result.path;
+            path.style.minHeight = "90px";
+            const copy = el("button", "btn tonal", languageText("Копировать путь", "Copy path"));
+            copy.type = "button";
+            copy.addEventListener("click", async () => {
+              try {
+                if (navigator.clipboard) await navigator.clipboard.writeText(result.path);
+                else { path.select(); if (!document.execCommand("copy")) throw new Error("copy"); }
+                toast("Copied");
+              } catch (_) { toast("Copy failed", "bad"); }
+            });
+            wrap.append(path, copy);
+          },
+          onConfirm: () => false,
+        });
+      });
+      diagnosticsRunning = false;
+      render();
+      return true;
+    },
+  });
 }
 
 function leadIcon(name) {
@@ -731,6 +918,7 @@ function statusCard() {
 
   box.append(kv("Rules active in kernel", st.rules == null ? "unavailable" : String(st.rules)));
   box.append(kv("Rule source", st.source === "none" ? "none (idle)" : st.source));
+  if (st.kernel && st.rules === 0) box.append(note(languageText("Модуль загружен, но активных правил нет. Проверьте выбранный источник.", "Module loaded, but no active rules. Check the selected rule source.")));
   if (st.kernel) {
     box.append(
       kv("Syscall hooks", st.kernel.native + " " + t("native") + ", " + st.kernel.compat + " " + t("compat")),
@@ -738,7 +926,7 @@ function statusCard() {
     box.append(kv("APK inodes", String(st.kernel.apk_inodes)));
     if (st.kernel.summary) box.append(kv("Summary", st.kernel.summary));
   }
-  box.append(kv("Config", st.config + (st.config_present ? "" : t(" (absent)"))));
+  box.append(kv("Config", st.active_config || languageText("Конфиг выбранного источника отсутствует", "Selected source config is absent")));
   return box;
 }
 
@@ -1512,8 +1700,8 @@ function viewHelp(body) {
   )));
   box.append(el("div", "section-title", languageText("Как действуют правила HMA-OSS", "How HMA-OSS rules are used")));
   box.append(note(languageText(
-    "Если источник правил — hma-oss, они синхронизируются с ядром автоматически. Раздел Manage apps показывает только самостоятельные правила; сохранение новой JSON-политики переключает источник с HMA-OSS после подтверждения.",
-    "When hma-oss is the active source, its rules are synchronized automatically. Manage apps lists only independent rules; saving a new standalone JSON policy takes priority over HMA-OSS after confirmation."
+    "Выберите источник на главном экране: HMA/HMA-OSS синхронизирует внешние правила, Ручной использует Manage apps. Сохранение или удаление ручных правил не переключает режим. При отсутствии выбранного конфига старая UID-политика очищается.",
+    "Choose the source on the home screen: HMA/HMA-OSS follows external rules, Manual uses Manage apps. Saving or deleting manual rules never switches modes. A missing selected config clears the previous UID policy."
   )));
   body.append(box);
 }

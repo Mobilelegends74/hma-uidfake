@@ -125,6 +125,11 @@ jobs:
           node --check module/webroot/help.js
           node scripts/test-webui-i18n.cjs
           node scripts/test-webui-help.cjs
+          python3 scripts/test-diagnostics.py
+          python3 scripts/test-source-mode.py
+          python3 scripts/test-kernel-image-abi.py
+          python3 scripts/test-manual-inject.py
+          node scripts/test-webui-diagnostics.cjs
           grep -q 'report_status(active_kernel_policy' src/tools/sync.cpp
           grep -q -- '--get-config' src/tools/sync.cpp
           grep -q -- '--set-config' src/tools/sync.cpp
@@ -136,8 +141,10 @@ jobs:
           zip=$(find build/dist -maxdepth 1 -name '*.zip' -type f -print -quit)
           test -n "$zip"
           unzip -t "$zip"
-          unzip -p "$zip" module.prop | grep -q '^version=0[.]3[.]7-fork+'
-          unzip -p "$zip" module.prop | grep -q '^versionCode=3007$'
+          unzip -p "$zip" module.prop | grep -q '^version=0[.]3[.]13-test-fork+'
+          unzip -p "$zip" module.prop | grep -q '^versionCode=3013$'
+          unzip -Z1 "$zip" | grep -qx 'manual-inject.sh'
+          unzip -Z1 "$zip" | grep -qx 'kernel-profiles/c35dd83674df6260539509ea6671b906d2fa3a23.abi'
           for kmi in android12-5.10 android13-5.10 android13-5.15 android14-5.15 android14-6.1 android15-6.6 android16-6.12 android17-6.18; do
             unzip -Z1 "$zip" | grep -qx "ko/${kmi}_arm64_hma_uidfake.ko"
           done
@@ -150,7 +157,8 @@ jobs:
           unzip -Z1 "$zip" | grep -qx 'webroot/help.js'
           unzip -p "$zip" module.prop | grep -q '^description=❌ Not working$'
           unzip -Z1 "$zip" | grep -qx 'webroot/locale.js'
-          unzip -p "$zip" module.prop | grep -q '^name=HMA UID Fake fork$'
+          unzip -p "$zip" module.prop | grep -q '^name=HMA UID Fake fork \[TEST\]$'
+          unzip -Z1 "$zip" | grep -qx 'diagnostics.sh'
           unzip -Z1 "$zip" | grep -qx 'webroot/style.css'
           unzip -Z1 "$zip" | grep -qx 'load.sh'
           unzip -Z1 "$zip" | grep -qx 'kmi-tool'
@@ -172,8 +180,8 @@ jobs:
             exit 1
           fi
           sha256sum "$zip"
-          mv "$zip" build/dist/hma-uidfake-fork-0.3.7.zip
-          (cd build/dist && sha256sum hma-uidfake-fork-0.3.7.zip > SHA256SUMS)
+          mv "$zip" build/dist/hma-uidfake-fork-0.3.13-test.zip
+          (cd build/dist && sha256sum hma-uidfake-fork-0.3.13-test.zip > SHA256SUMS)
       - uses: actions/upload-artifact@v7
         with:
           name: module-zip
@@ -186,9 +194,11 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v3
         with:
-          name: HMA UID Fake fork 0.3.7 — KMI и кастомные ядра
-          body_path: docs/releases/v0.3.7-fork.md
-          draft: true
+          name: HMA UID Fake fork 0.3.13 TEST — Manual direct load
+          body_path: docs/releases/v0.3.13-test-fork.md
+          draft: false
+          prerelease: true
+          make_latest: false
           files: |
-            build/dist/hma-uidfake-fork-0.3.7.zip
+            build/dist/hma-uidfake-fork-0.3.13-test.zip
             build/dist/SHA256SUMS

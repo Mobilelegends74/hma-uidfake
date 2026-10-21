@@ -15,6 +15,11 @@ inline constexpr std::string_view kPackagesXml = "/data/system/packages.xml";
  * it decides which class reads it: the module's own (Native), or one of the two
  * apps' configs it can still follow. */
 enum class Tool { Native, Hma, HmaOss };
+enum class RuleMode { External, Manual, Invalid };
+[[nodiscard]] RuleMode read_rule_mode(const std::filesystem::path &file);
+[[nodiscard]] RuleMode rule_mode();
+[[nodiscard]] std::string_view rule_mode_name(RuleMode mode);
+[[nodiscard]] bool write_rule_mode(RuleMode mode);
 
 /* Where the module keeps its own config when it is the rule source. This is
  * outside /data/adb/modules/ on purpose: a module update replaces that tree,
@@ -22,8 +27,7 @@ enum class Tool { Native, Hma, HmaOss };
 inline constexpr std::string_view kNativeConfigDir = "/data/adb/hma-uidfake";
 inline constexpr std::string_view kNativeConfigFile = "config.json";
 
-/* The one native config the tool reads and the WebUI writes: the first place
- * the lookup order below checks. */
+/* Saved manual rules. Only active when manual source mode is selected. */
 [[nodiscard]] inline std::filesystem::path native_config_file() {
   return std::filesystem::path{std::string{kNativeConfigDir} + "/" +
                                std::string{kNativeConfigFile}};
@@ -46,10 +50,10 @@ public:
   /* The places both tools use, in the order they are looked for. */
   [[nodiscard]] static std::vector<RuleSource> known();
 
-  /* The first of `sources` that has a config. By value, so it cannot point into
-   * a list that has gone away. */
+  /* A config from the selected mode only. External defaults to OSS then HMA;
+   * manual never falls back to external/obsolete configs. */
   [[nodiscard]] static std::optional<RuleSource>
-  active(const std::vector<RuleSource> &sources);
+  active(const std::vector<RuleSource> &sources, RuleMode mode = rule_mode());
 
   RuleSource(std::filesystem::path pattern, Tool tool)
       : pattern_(std::move(pattern)), tool_(tool) {}

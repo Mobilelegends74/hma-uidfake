@@ -24,7 +24,7 @@ window.HMA_CONTEXT_HELP = Object.freeze({
         },
         {
           "title": "Main menu",
-          "text": "Manage apps configures an independent policy; Templates group targets; Backup & restore handles this module's JSON config; Settings contains defaults. Read the source-priority warning before saving."
+          "text": "Choose HMA/HMA-OSS or Manual explicitly on the home screen. Saving manual rules never switches mode. In HMA-OSS mode they remain inactive saved data; deleting the selected config clears the previous UID policy."
         }
       ]
     },
@@ -50,7 +50,7 @@ window.HMA_CONTEXT_HELP = Object.freeze({
         },
         {
           "title": "Разделы",
-          "text": "Manage apps — самостоятельные правила, Templates — группы приложений, Backup & restore — резервное копирование JSON, Settings — общие настройки. Перед сохранением прочитайте предупреждение о приоритете источника."
+          "text": "Источник выбирается отдельно на главном экране: HMA/HMA-OSS или Ручной. Сохранение ручных правил не переключает режим. В режиме HMA-OSS они остаются неактивной резервной копией; при удалении выбранного конфига старая UID-политика очищается."
         }
       ]
     }
@@ -66,7 +66,7 @@ window.HMA_CONTEXT_HELP = Object.freeze({
         },
         {
           "title": "Saving a rule",
-          "text": "Creates /data/adb/hma-uidfake/config.json, an independent policy with priority over HMA / HMA-OSS. You are asked for confirmation before the first switch. Do not add a rule here just to make HMA-OSS rules visible."
+          "text": "Choose HMA/HMA-OSS or Manual explicitly on the home screen. Saving manual rules never switches mode. In HMA-OSS mode they remain inactive saved data; deleting the selected config clears the previous UID policy."
         },
         {
           "title": "Search and filters",
@@ -84,7 +84,7 @@ window.HMA_CONTEXT_HELP = Object.freeze({
         },
         {
           "title": "Что произойдёт при сохранении",
-          "text": "Будет создан /data/adb/hma-uidfake/config.json — отдельная политика с приоритетом над HMA/HMA-OSS. Перед первым переключением появится предупреждение. Создавать здесь правило только ради отображения правил HMA-OSS не нужно."
+          "text": "Источник выбирается отдельно на главном экране: HMA/HMA-OSS или Ручной. Сохранение ручных правил не переключает режим. В режиме HMA-OSS они остаются неактивной резервной копией; при удалении выбранного конфига старая UID-политика очищается."
         },
         {
           "title": "Поиск и фильтры",
@@ -264,7 +264,7 @@ window.HMA_CONTEXT_HELP = Object.freeze({
         },
         {
           "title": "Done",
-          "text": "Saves the selection through the caller rule screen, with the same HMA-OSS source-priority warning as any independent change."
+          "text": "Choose HMA/HMA-OSS or Manual explicitly on the home screen. Saving manual rules never switches mode. In HMA-OSS mode they remain inactive saved data; deleting the selected config clears the previous UID policy."
         }
       ]
     },
@@ -278,7 +278,7 @@ window.HMA_CONTEXT_HELP = Object.freeze({
         },
         {
           "title": "Done",
-          "text": "Передаёт выбор в правило приложения; при сохранении действует то же предупреждение о приоритете над HMA-OSS."
+          "text": "Источник выбирается отдельно на главном экране: HMA/HMA-OSS или Ручной. Сохранение ручных правил не переключает режим. В режиме HMA-OSS они остаются неактивной резервной копией; при удалении выбранного конфига старая UID-политика очищается."
         }
       ]
     }
@@ -360,7 +360,7 @@ window.HMA_CONTEXT_HELP = Object.freeze({
         },
         {
           "title": "Source precedence",
-          "text": "Saving a standalone config takes priority over rules synchronized from HMA/HMA-OSS. Copy your current config first."
+          "text": "Choose HMA/HMA-OSS or Manual explicitly on the home screen. Saving manual rules never switches mode. In HMA-OSS mode they remain inactive saved data; deleting the selected config clears the previous UID policy."
         }
       ]
     },
@@ -378,7 +378,7 @@ window.HMA_CONTEXT_HELP = Object.freeze({
         },
         {
           "title": "Приоритет",
-          "text": "При сохранении эта конфигурация имеет приоритет над HMA/HMA-OSS. Предварительно сохраните копию настроек."
+          "text": "Источник выбирается отдельно на главном экране: HMA/HMA-OSS или Ручной. Сохранение ручных правил не переключает режим. В режиме HMA-OSS они остаются неактивной резервной копией; при удалении выбранного конфига старая UID-политика очищается."
         }
       ]
     }
@@ -398,7 +398,7 @@ window.HMA_CONTEXT_HELP = Object.freeze({
         },
         {
           "title": "Caution",
-          "text": "Restoring a standalone policy takes precedence over HMA-OSS synchronization. Keep a backup and check the rule source afterward."
+          "text": "Choose HMA/HMA-OSS or Manual explicitly on the home screen. Saving manual rules never switches mode. In HMA-OSS mode they remain inactive saved data; deleting the selected config clears the previous UID policy."
         }
       ]
     },
@@ -466,7 +466,7 @@ window.HMA_CONTEXT_HELP = Object.freeze({
       "sections": [
         {
           "title": "Coverage",
-          "text": "The kernel hooks can affect getpriority, setpriority and I/O priority calls, depending on the kernel and available native/compat hooks."
+          "text": "Choose HMA/HMA-OSS or Manual explicitly on the home screen. Saving manual rules never switches mode. In HMA-OSS mode they remain inactive saved data; deleting the selected config clears the previous UID policy."
         },
         {
           "title": "Not a replacement for HMA-OSS",
@@ -474,7 +474,7 @@ window.HMA_CONTEXT_HELP = Object.freeze({
         },
         {
           "title": "Policy source",
-          "text": "HMA / HMA-OSS rules are imported automatically. An independent config created by this WebUI takes priority until removed or otherwise reset."
+          "text": "Choose HMA/HMA-OSS or Manual explicitly on the home screen. Saving manual rules never switches mode. In HMA-OSS mode they remain inactive saved data; deleting the selected config clears the previous UID policy."
         },
         {
           "title": "Kernel risk",
@@ -488,7 +488,7 @@ window.HMA_CONTEXT_HELP = Object.freeze({
       "sections": [
         {
           "title": "Перехваты",
-          "text": "В зависимости от возможностей ядра затрагиваются getpriority, setpriority и вызовы приоритетов ввода-вывода, включая совместимые 32-битные варианты."
+          "text": "Источник выбирается отдельно на главном экране: HMA/HMA-OSS или Ручной. Сохранение ручных правил не переключает режим. В режиме HMA-OSS они остаются неактивной резервной копией; при удалении выбранного конфига старая UID-политика очищается."
         },
         {
           "title": "Не замена HMA-OSS",
@@ -496,7 +496,7 @@ window.HMA_CONTEXT_HELP = Object.freeze({
         },
         {
           "title": "Источники правил",
-          "text": "Правила HMA/HMA-OSS считываются автоматически. Самостоятельный JSON, созданный через WebUI, получает приоритет до удаления или сброса."
+          "text": "Источник выбирается отдельно на главном экране: HMA/HMA-OSS или Ручной. Сохранение ручных правил не переключает режим. В режиме HMA-OSS они остаются неактивной резервной копией; при удалении выбранного конфига старая UID-политика очищается."
         },
         {
           "title": "Риски ядра",

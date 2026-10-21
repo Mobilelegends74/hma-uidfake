@@ -1,15 +1,19 @@
 // SPDX-License-Identifier: GPL-2.0
 #include "kmi.hpp"
 #include <algorithm>
+#include <cerrno>
 #include <cstdint>
 #include <cstring>
 #include <elf.h>
+#include <fcntl.h>
 #include <fstream>
 #include <iterator>
+#include <optional>
 #include <regex>
 #include <set>
 #include <sstream>
 #include <stdexcept>
+#include <unistd.h>
 #include <zlib.h>
 
 namespace uidfake::kmi {
@@ -190,6 +194,142 @@ Module inspect(const std::filesystem::path &path) {
   return result;
 }
 
+namespace {
+// A loaded vendor module is not ABI proof on a kernel that ignores CRC errors.
+bool crc_bypass_observed(const std::filesystem::path &root) {
+  const int fd =
+      open((root / "dev/kmsg").c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+  if (fd < 0)
+    return false;
+  std::string pending;
+  bool bypass = false;
+  std::size_t scanned = 0;
+  char block[65536];
+  // /dev/kmsg returns one record per read, not an arbitrary chunk like a file.
+  // Keep both a record limit and a byte limit; 256 reads missed early boot
+  // logs.
+  for (unsigned i = 0; i < 65536 && scanned < 16 * 1024 * 1024; ++i) {
+    const auto size = read(fd, block, sizeof(block));
+    if (size < 0 && (errno == EINTR || errno == EPIPE))
+      continue;
+    if (size <= 0)
+      break;
+    scanned += static_cast<std::size_t>(size);
+    pending.append(block, size);
+    if (pending.find("disagrees about version of symbol") !=
+            std::string::npos &&
+        pending.find("but ignore") != std::string::npos) {
+      bypass = true;
+      break;
+    }
+    if (pending.size() > 131072)
+      pending.erase(0, pending.size() - 65536);
+  }
+  close(fd);
+  return bypass;
+}
+
+std::optional<Result> image_profile(const std::filesystem::path &directory,
+                                    const std::filesystem::path &root,
+                                    const std::string &banner,
+                                    const std::string &version) {
+  std::error_code ec;
+  auto current_banner = banner;
+  while (!current_banner.empty() &&
+         (current_banner.back() == '\n' || current_banner.back() == '\r'))
+    current_banner.pop_back();
+  unsigned count = 0;
+  for (const auto &file :
+       std::filesystem::directory_iterator(directory / "kernel-profiles", ec)) {
+    if (++count > 64)
+      throw std::runtime_error("too many kernel ABI profiles");
+    if (file.path().extension() != ".abi")
+      continue;
+    std::istringstream input(text(file.path()));
+    std::string line, id, kmi, expected_banner;
+    std::map<std::string, uint64_t> crcs;
+    while (std::getline(input, line)) {
+      if (line.rfind("banner ", 0) == 0)
+        expected_banner = line.substr(7);
+      else if (line.rfind("build_id ", 0) == 0)
+        id = line.substr(9);
+      else if (line.rfind("kmi ", 0) == 0)
+        kmi = line.substr(4);
+      else if (line.rfind("crc ", 0) == 0) {
+        std::istringstream record(line.substr(4));
+        std::string name, hex;
+        record >> name >> hex;
+        if (!std::regex_match(name, std::regex("[a-zA-Z0-9_]+")) ||
+            !std::regex_match(hex, std::regex("[0-9a-f]{8}")) ||
+            !crcs.emplace(name, std::stoull(hex, nullptr, 16)).second)
+          throw std::runtime_error("invalid kernel CRC profile");
+      }
+    }
+    if (expected_banner != current_banner)
+      continue;
+    const std::string evidence =
+        "kernel image profile: " + id +
+        "; complete import comparison (not vendor CRCs)\n";
+    if (!std::regex_match(id, std::regex("[0-9a-f]{40}")) ||
+        !std::regex_match(kmi, std::regex("android[0-9]+-" + version)) ||
+        !crcs.count("module_layout"))
+      return Result{
+          {}, "PROFILE_INVALID", "Invalid kernel-image ABI profile", evidence};
+    std::vector<unsigned char> needle{4, 0, 0, 0, 20,  0,   0,   0,
+                                      3, 0, 0, 0, 'G', 'N', 'U', 0};
+    for (std::size_t i = 0; i < id.size(); i += 2)
+      needle.push_back(std::stoul(id.substr(i, 2), nullptr, 16));
+    const auto notes = bytes(root / "sys/kernel/notes", 65536);
+    if (std::search(notes.begin(), notes.end(), needle.begin(), needle.end()) ==
+        notes.end())
+      return Result{
+          {},
+          "PROFILE_ID_UNVERIFIED",
+          "Kernel banner matches a known CRC-bypass image, but live kernel "
+          "build ID is unavailable/different; refusing vendor inference",
+          evidence};
+    const auto module =
+        inspect(directory / "ko" / (kmi + "_arm64_hma_uidfake.ko"));
+    if (!module.versioned || module.info.at("name") != "hma_uidfake" ||
+        module.info.at("uidfake_kmi") != kmi ||
+        module.info.at("vermagic").rfind(version + ".", 0) != 0 ||
+        !std::regex_search(module.info.at("vermagic"),
+                           std::regex("(^| )modversions( |$)")))
+      return Result{{},
+                    "MODULE_METADATA",
+                    "Invalid candidate for image profile",
+                    evidence};
+    unsigned missing = 0, mismatch = 0;
+    std::string details = evidence;
+    for (const auto &[name, crc] : module.crcs) {
+      const auto found = crcs.find(name);
+      if (found == crcs.end()) {
+        ++missing;
+        details += "uncovered import=" + name + "\n";
+      } else if (found->second != crc) {
+        ++mismatch;
+        details += "kernel CRC mismatch=" + name + "\n";
+      }
+    }
+    details += "imports=" + std::to_string(module.crcs.size()) +
+               " missing=" + std::to_string(missing) +
+               " mismatched=" + std::to_string(mismatch) + "\n";
+    if (missing || mismatch)
+      return Result{{},
+                    "ABI_KERNEL_MISMATCH",
+                    "Packaged module does not match CRCs extracted from the "
+                    "exact kernel image; a matching source-built LKM is "
+                    "required (no force/CRC rewriting)",
+                    details};
+    return Result{kmi, "KMI_SELECTED",
+                  "Live kernel build ID and all module import CRCs match "
+                  "kernel-image profile; runtime hook testing still required",
+                  details};
+  }
+  return std::nullopt;
+}
+} // namespace
+
 Result select(const std::filesystem::path &directory,
               const std::filesystem::path &root, const std::string &release,
               const std::string &machine) {
@@ -229,6 +369,15 @@ Result select(const std::filesystem::path &directory,
   // Only its release token is kernel identity. Compiler strings elsewhere in
   // /proc/version can mention a different Android toolchain branch.
   const auto banner = text(root / "proc/version");
+  if (const auto profile = image_profile(directory, root, banner, version))
+    return *profile;
+  if (crc_bypass_observed(root))
+    return {{},
+            "ABI_CHECKS_BYPASSED",
+            "Kernel ignores module CRC mismatches; loaded vendor modules "
+            "cannot establish kernel ABI. Need verified kernel-image profile "
+            "and matching source-built LKM",
+            {}};
   std::smatch banner_release;
   if (std::regex_search(banner, banner_release,
                         std::regex("^Linux version ([^ \t\n]+)")))
