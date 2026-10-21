@@ -1,0 +1,43 @@
+name: Probe compatible 6.12.38 ABI
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        snapshot: ['20251007', '20251016', '20251104', '20260313']
+    container:
+      image: ghcr.io/ylarod/ddk:android16-6.12-${{ matrix.snapshot }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Inspect ABI and compile matching candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          kdir=/opt/ddk/kdir/android16-6.12
+          grep -w module_layout "$kdir/Module.symvers"
+          head -n 5 "$kdir/include/generated/utsrelease.h"
+          layout=$(awk '$2 == "module_layout" { print tolower($1) }' "$kdir/Module.symvers")
+          if [ "$layout" != 0xe976b219 ]; then
+            echo 'Different ABI; do not use for target phone'
+            exit 0
+          fi
+          python3 scripts/restore-modpost.py /opt/ddk/src/android16-6.12
+          make -C "$kdir" ARCH=arm64 LLVM=1 CROSS_COMPILE=aarch64-linux-gnu- modules_prepare
+          stage="$RUNNER_TEMP/stage/android16-6.12"
+          mkdir -p "$stage" out
+          for f in src/*; do ln -s "$PWD/$f" "$stage/$(basename "$f")"; done
+          make -C "$kdir" ARCH=arm64 LLVM=1 CROSS_COMPILE=aarch64-linux-gnu- M="$stage" modules
+          cp "$stage/hma_uidfake.ko" out/
+          cp "$kdir/Module.symvers" out/kernel-Module.symvers
+          cp "$kdir/.config" out/kernel.config
+          clang --version
+      - uses: actions/upload-artifact@v7
+        with:
+          name: abi-probe-${{ matrix.snapshot }}
+          path: out/*
+          if-no-files-found: ignore
