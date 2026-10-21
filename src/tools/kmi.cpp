@@ -203,13 +203,18 @@ bool crc_bypass_observed(const std::filesystem::path &root) {
     return false;
   std::string pending;
   bool bypass = false;
+  std::size_t scanned = 0;
   char block[65536];
-  for (unsigned i = 0; i < 256; ++i) {
+  // /dev/kmsg returns one record per read, not an arbitrary chunk like a file.
+  // Keep both a record limit and a byte limit; 256 reads missed early boot
+  // logs.
+  for (unsigned i = 0; i < 65536 && scanned < 16 * 1024 * 1024; ++i) {
     const auto size = read(fd, block, sizeof(block));
     if (size < 0 && (errno == EINTR || errno == EPIPE))
       continue;
     if (size <= 0)
       break;
+    scanned += static_cast<std::size_t>(size);
     pending.append(block, size);
     if (pending.find("disagrees about version of symbol") !=
             std::string::npos &&

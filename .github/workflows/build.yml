@@ -140,8 +140,8 @@ jobs:
           zip=$(find build/dist -maxdepth 1 -name '*.zip' -type f -print -quit)
           test -n "$zip"
           unzip -t "$zip"
-          unzip -p "$zip" module.prop | grep -q '^version=0[.]3[.]9-test-fork+'
-          unzip -p "$zip" module.prop | grep -q '^versionCode=3009$'
+          unzip -p "$zip" module.prop | grep -q '^version=0[.]3[.]10-test-fork+'
+          unzip -p "$zip" module.prop | grep -q '^versionCode=3010$'
           for kmi in android12-5.10 android13-5.10 android13-5.15 android14-5.15 android14-6.1 android15-6.6 android16-6.12 android17-6.18; do
             unzip -Z1 "$zip" | grep -qx "ko/${kmi}_arm64_hma_uidfake.ko"
           done
@@ -177,8 +177,8 @@ jobs:
             exit 1
           fi
           sha256sum "$zip"
-          mv "$zip" build/dist/hma-uidfake-fork-0.3.9-test.zip
-          (cd build/dist && sha256sum hma-uidfake-fork-0.3.9-test.zip > SHA256SUMS)
+          mv "$zip" build/dist/hma-uidfake-fork-0.3.10-test.zip
+          (cd build/dist && sha256sum hma-uidfake-fork-0.3.10-test.zip > SHA256SUMS)
       - uses: actions/upload-artifact@v7
         with:
           name: module-zip
@@ -191,11 +191,11 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v3
         with:
-          name: HMA UID Fake fork 0.3.9 TEST — источники правил и проверка ABI
-          body_path: docs/releases/v0.3.9-test-fork.md
+          name: HMA UID Fake fork 0.3.10 TEST — источники правил и проверка ABI
+          body_path: docs/releases/v0.3.10-test-fork.md
           draft: true
           prerelease: true
           make_latest: false
           files: |
-            build/dist/hma-uidfake-fork-0.3.9-test.zip
+            build/dist/hma-uidfake-fork-0.3.10-test.zip
             build/dist/SHA256SUMS

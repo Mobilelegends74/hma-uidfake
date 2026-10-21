@@ -1,4 +1,11 @@
-## 0.3.9-test-fork (prerelease — explicit rule source and kernel ABI evidence)
+## 0.3.10-test-fork (prerelease — rule-source and ABI test build)
+
+- Includes the explicit HMA/HMA-OSS versus Manual mode, stale-policy cleanup, package-event refresh and exact-image CRC checks described below.
+- Extend bounded /dev/kmsg inspection by both record and byte counts: a character device yields one record per read, so a small read-count limit missed early boot evidence of bypassed CRC checks.
+- Add regression coverage for the legacy source fixtures; keep saved manual configs and diagnostics without automatic source takeover.
+- VersionCode 3010. This is a test release, not a working-LKM claim for the unsupported Kitsune image; see the documented source/ABI limitation. Stable Latest remains 0.3.7.
+
+## 0.3.9-test-fork (internal CI candidate — not published)
 
 - Add explicit HMA/HMA-OSS versus Manual policy mode, defaulting to external synchronization. Existing manual files remain saved but cannot silently override external rules; obsolete module-directory copies are ignored.
 - Clear stale UID policy when the selected config disappears, push empty policies on first synchronization, monitor source-mode changes and recompute UID rules on package events.

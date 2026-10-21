@@ -47,6 +47,10 @@ int main(int argc, char **argv) {
                     '-Wno-unused-parameter', '-Isrc/tools', str(tmp / 'test.cpp'),
                     'src/tools/paths.cpp', '-o', str(tmp / 'test')], check=True)
     subprocess.run([str(tmp / 'test'), str(tmp)], check=True)
+    subprocess.run(['g++', '-std=c++23', '-Isrc/tools',
+                    'scripts/rule_sources_test.cpp', 'src/tools/paths.cpp',
+                    '-o', str(tmp / 'legacy-test')], check=True)
+    subprocess.run([str(tmp / 'legacy-test'), str(tmp / 'legacy-fixture')], check=True)
 
 sync = Path('src/tools/sync.cpp').read_text()
 assert 'sync_now("installed packages changed")' in sync
