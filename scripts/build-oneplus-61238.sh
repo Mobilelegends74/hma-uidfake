@@ -31,14 +31,20 @@ clang --version
 rustc --version
 bindgen --version
 cd "$task_root/source"
+# Match the upstream task_struct layout change used for SYSVIPC. This is
+# source/header compatibility, not a CRC substitution or loader bypass.
+curl --fail --location --retry 3 https://raw.githubusercontent.com/WildKernels/kernel_patches/44b23a7601b98a3c548e2584e9f294d7b8b2d19b/common/droidspaces/fix_sysvipc_kabi_a16-6.12.patch -o "$task_root/sysvipc.patch"
+patch -p1 --fuzz=0 < "$task_root/sysvipc.patch"
 mkdir -p out
 cp "$project/compat/oneplus-6.12.38/kernel.config" out/.config
 make O=out olddefconfig
+scripts/diffconfig "$project/compat/oneplus-6.12.38/kernel.config" out/.config
 for required in CONFIG_GENDWARFKSYMS=y CONFIG_EXTENDED_MODVERSIONS=y CONFIG_CFI_CLANG=y CONFIG_CFI_ICALL_NORMALIZE_INTEGERS=y CONFIG_RUST=y; do
   grep -qx "$required" out/.config || { echo "Required config lost: $required"; exit 1; }
 done
 make -j"$(nproc)" O=out modules_prepare kernel/module/version.o
 layout=$(awk '$1 == "#SYMVER" && $2 == "module_layout" { value=$3 } END { print value }' out/kernel/module/.version.o.cmd)
+echo "Initial source-generated module_layout=$layout"
 if [ "$layout" != 0xe976b219 ]; then
   export KBUILD_GENDWARFKSYMS_STABLE=1
   touch kernel/module/version.c
