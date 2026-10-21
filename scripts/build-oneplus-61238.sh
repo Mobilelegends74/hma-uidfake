@@ -3,7 +3,7 @@
 set -euo pipefail
 project=$PWD
 task_root="${RUNNER_TEMP:?}/oneplus-61238"
-mkdir -p "$task_root/source" "$task_root/clang" "$task_root/rust" "$task_root/clang-tools"
+mkdir -p "$task_root/source" "$task_root/clang" "$task_root/rust" "$task_root/clang-tools" "$task_root/build-tools"
 cache=https://github.com/WildKernels/OnePlus_KernelSU_SUSFS/releases/download/toolchain-cache
 source_commit=2eeabf09aa84e35236fdb82aba9b59b18b04ff9c
 curl --fail --location --retry 3 "https://github.com/OnePlusOSS/android_kernel_common_oneplus_sm8845/archive/$source_commit.tar.gz" |
@@ -16,10 +16,13 @@ curl --fail --location --retry 3 "$cache/rust-6ff98fecc15373d056564f1ad13508f812
   tar -xz --strip-components=1 -C "$task_root/rust"
 curl --fail --location --retry 3 "$cache/clang-tools-8d2e8177f56ed0543cc8866ecad6f9f32f25fffe.tar.gz" |
   tar -xz --strip-components=1 -C "$task_root/clang-tools"
+curl --fail --location --retry 3 "$cache/build-tools-4ba19a61c7a0d63603e0d1c84eb2b610bff706a4.tar.gz" |
+  tar -xz --strip-components=1 -C "$task_root/build-tools"
 clang_bin=$(find "$task_root/clang" -path '*/clang-r547379/bin/clang' -print -quit)
 rust_bin=$(find "$task_root/rust" -path '*/1.82.0/bin/rustc' -print -quit)
 bindgen_bin=$(find "$task_root/clang-tools" -path '*/bin/bindgen' -print -quit)
-test -x "$clang_bin" && test -x "$rust_bin" && test -x "$bindgen_bin"
+export PAHOLE=$(find "$task_root/build-tools" -path '*/bin/pahole' -print -quit)
+test -x "$clang_bin" && test -x "$rust_bin" && test -x "$bindgen_bin" && test -x "$PAHOLE"
 export PATH="$(dirname "$clang_bin"):$(dirname "$rust_bin"):$(dirname "$bindgen_bin"):$PATH"
 export LIBCLANG_PATH="$(dirname "$clang_bin")/../lib"
 export ARCH=arm64 LLVM=1 LLVM_IAS=1 CROSS_COMPILE=aarch64-linux-gnu-
@@ -30,6 +33,7 @@ export KCPPFLAGS='-DCONFIG_OPTIMIZE_INLINING'
 clang --version
 rustc --version
 bindgen --version
+"$PAHOLE" --version
 cd "$task_root/source"
 # Match the upstream task_struct layout change used for SYSVIPC. This is
 # source/header compatibility, not a CRC substitution or loader bypass.
@@ -56,9 +60,10 @@ test "$layout" = 0xe976b219
 # Native kernel modpost creates the real symvers. Do not substitute CRCs from
 # another kernel/header tree or edit the emitted module version sections.
 make -j"$(nproc)" O=out Image
-if [ ! -s out/Module.symvers ]; then
-  make -j"$(nproc)" O=out modules
-fi
+# UIDFAKE imports built-in exports only. Preserve the exact native modpost
+# output; compiling unrelated vendor/Rust LKMs is not a prerequisite.
+test -s out/vmlinux.symvers
+cp out/vmlinux.symvers out/Module.symvers
 test -s out/Module.symvers
 stage="$task_root/stage/android16-6.12"
 mkdir -p "$stage" "$project/out-oneplus"
