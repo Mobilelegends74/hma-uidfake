@@ -123,7 +123,7 @@ jobs:
             cp native-build/* out-oneplus/
           else
             sudo apt-get update
-            sudo apt-get install -y bc bison flex libssl-dev libelf-dev libdw-dev dwarves zstd libzstd-dev cpio rsync
+            sudo apt-get install -y bc bison flex libssl-dev libelf-dev libdw-dev dwarves zstd libzstd-dev cpio rsync cmake pkg-config zlib1g-dev
             bash scripts/build-oneplus-61238.sh
           fi
       - name: Verify exact module sources and kernel ABI

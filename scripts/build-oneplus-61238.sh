@@ -3,7 +3,7 @@
 set -euo pipefail
 project=$PWD
 task_root="${RUNNER_TEMP:?}/oneplus-61238"
-mkdir -p "$task_root/source" "$task_root/clang" "$task_root/rust" "$task_root/clang-tools" "$task_root/build-tools"
+mkdir -p "$task_root/source" "$task_root/clang" "$task_root/rust" "$task_root/clang-tools" "$task_root/pahole"
 cache=https://github.com/WildKernels/OnePlus_KernelSU_SUSFS/releases/download/toolchain-cache
 source_commit=2eeabf09aa84e35236fdb82aba9b59b18b04ff9c
 curl --fail --location --retry 3 "https://github.com/OnePlusOSS/android_kernel_common_oneplus_sm8845/archive/$source_commit.tar.gz" |
@@ -16,12 +16,17 @@ curl --fail --location --retry 3 "$cache/rust-6ff98fecc15373d056564f1ad13508f812
   tar -xz --strip-components=1 -C "$task_root/rust"
 curl --fail --location --retry 3 "$cache/clang-tools-8d2e8177f56ed0543cc8866ecad6f9f32f25fffe.tar.gz" |
   tar -xz --strip-components=1 -C "$task_root/clang-tools"
-curl --fail --location --retry 3 "$cache/build-tools-4ba19a61c7a0d63603e0d1c84eb2b610bff706a4.tar.gz" |
-  tar -xz --strip-components=1 -C "$task_root/build-tools"
+# 1.25 (including the Android prebuilt) truncates per-CPU BTF on this DWARF
+# input. Build the upstream release with its bundled libbpf; retain full BTF.
+curl --fail --location --retry 3 https://fedorapeople.org/~acme/dwarves/dwarves-1.31.tar.xz -o "$task_root/pahole.tar.xz"
+echo "0a7f255ccacf8cc7f8cd119099eb327179b4b3c67cb015af646af6d0cb03054d  $task_root/pahole.tar.xz" | sha256sum -c -
+tar -xJf "$task_root/pahole.tar.xz" --strip-components=1 -C "$task_root/pahole"
+cmake -S "$task_root/pahole" -B "$task_root/pahole/build" -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF
+cmake --build "$task_root/pahole/build" --target pahole -j"$(nproc)"
 clang_bin=$(find "$task_root/clang" -path '*/clang-r547379/bin/clang' -print -quit)
 rust_bin=$(find "$task_root/rust" -path '*/1.82.0/bin/rustc' -print -quit)
 bindgen_bin=$(find "$task_root/clang-tools" -path '*/bin/bindgen' -print -quit)
-export PAHOLE=$(find "$task_root/build-tools" -path '*/bin/pahole' -print -quit)
+export PAHOLE="$task_root/pahole/build/pahole"
 test -x "$clang_bin" && test -x "$rust_bin" && test -x "$bindgen_bin" && test -x "$PAHOLE"
 export PATH="$(dirname "$clang_bin"):$(dirname "$rust_bin"):$(dirname "$bindgen_bin"):$PATH"
 export LIBCLANG_PATH="$(dirname "$clang_bin")/../lib"
@@ -39,6 +44,7 @@ cd "$task_root/source"
 # source/header compatibility, not a CRC substitution or loader bypass.
 curl --fail --location --retry 3 https://raw.githubusercontent.com/WildKernels/kernel_patches/44b23a7601b98a3c548e2584e9f294d7b8b2d19b/common/droidspaces/fix_sysvipc_kabi_a16-6.12.patch -o "$task_root/sysvipc.patch"
 patch -p1 --fuzz=0 < "$task_root/sysvipc.patch"
+touch -r Makefile include/linux/sched.h
 mkdir -p out
 cp "$project/compat/oneplus-6.12.38/kernel.config" out/.config
 make O=out olddefconfig

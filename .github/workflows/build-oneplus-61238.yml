@@ -15,9 +15,19 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Build dependencies
-        run: sudo apt-get update && sudo apt-get install -y bc bison flex libssl-dev libelf-dev libdw-dev dwarves zstd libzstd-dev cpio rsync
+        run: sudo apt-get update && sudo apt-get install -y bc bison flex libssl-dev libelf-dev libdw-dev dwarves zstd libzstd-dev cpio rsync cmake pkg-config zlib1g-dev
+      - uses: actions/cache/restore@v4
+        id: kernel-cache
+        with:
+          path: ${{ runner.temp }}/oneplus-61238/source/out
+          key: oneplus-61238-kdir-${{ hashFiles('compat/oneplus-6.12.38/kernel.config', 'scripts/build-oneplus-61238.sh') }}
       - name: Build source-matched compatibility module
         run: bash scripts/build-oneplus-61238.sh
+      - uses: actions/cache/save@v4
+        if: always() && steps.kernel-cache.outputs.cache-hit != 'true'
+        with:
+          path: ${{ runner.temp }}/oneplus-61238/source/out
+          key: ${{ steps.kernel-cache.outputs.cache-primary-key }}
       - uses: actions/upload-artifact@v7
         if: always()
         with:
