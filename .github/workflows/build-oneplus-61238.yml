@@ -2,7 +2,7 @@ name: Build OnePlus 6.12.38 compatibility
 on:
   workflow_dispatch:
   push:
-    branches: [test/oneplus-61238-updates-0315]
+    branches: [develop]
     paths:
       - scripts/build-oneplus-61238.sh
       - compat/oneplus-6.12.38/kernel.config

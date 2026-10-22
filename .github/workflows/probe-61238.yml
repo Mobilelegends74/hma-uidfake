@@ -2,7 +2,7 @@ name: Probe compatible 6.12.38 ABI
 on:
   workflow_dispatch:
   push:
-    branches: [test/oneplus-61238-updates-0315]
+    branches: [develop]
     paths: [.github/workflows/probe-61238.yml]
 permissions:
   contents: read

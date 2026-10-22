@@ -24,6 +24,8 @@
 
 ## Overview
 
+Development uses the permanent `develop` branch; `main` holds published code and `kernel-patches` holds standalone patches. [Branch and source archive](docs/branches.md).
+
 **HMA UID Fake fork** is an Android kernel module that complements **HMA / HMA-OSS** app hiding. A package can be hidden from Android's PackageManager while still leaving detectable UID traces through kernel system calls. This module synchronizes HMA / HMA-OSS policies to the kernel and changes selected UID lookup results **only for configured callers**.
 
 It is an additional privacy layer, **not a replacement for HMA-OSS**. The fork builds upon [KodateMitsuru/hma-uidfake](https://github.com/KodateMitsuru/hma-uidfake), with open WebUI/configuration work adapted from [SHuiTU68/hma-uidfake](https://github.com/SHuiTU68/hma-uidfake). Maintained by [Mobilelegends74](https://github.com/Mobilelegends74), with upstream attribution and licensing preserved.
