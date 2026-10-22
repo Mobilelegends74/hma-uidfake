@@ -7,7 +7,7 @@
 **Ядровой модуль для KernelSU Next, дополняющий скрытие приложений HMA / HMA-OSS.**
 
 [![Build](https://img.shields.io/github/actions/workflow/status/Mobilelegends74/hma-uidfake/build.yml?branch=main&label=Build&style=flat-square)](https://github.com/Mobilelegends74/hma-uidfake/actions/workflows/build.yml)
-[![Latest Release](https://img.shields.io/badge/Latest_release-v0.3.14-orange?style=flat-square)](https://github.com/Mobilelegends74/hma-uidfake/releases/latest)
+[![Latest Release](https://img.shields.io/badge/Latest_release-v0.3.16-orange?style=flat-square)](https://github.com/Mobilelegends74/hma-uidfake/releases/latest)
 [![Downloads](docs/assets/downloads.svg)](https://github.com/Mobilelegends74/hma-uidfake/releases)
 [![License](https://img.shields.io/badge/License-GPL--2.0-blue?style=flat-square)](LICENSE)
 [![Architecture](https://img.shields.io/badge/Arch-arm64-5a81d8?style=flat-square)](#требования)
@@ -15,7 +15,7 @@
 
 **Русский** · [English](README_EN.md)
 
-[![Скачать последнюю версию](https://img.shields.io/badge/⬇_Скачать_последнюю_версию-ZIP-2e9c82?style=for-the-badge)](https://github.com/Mobilelegends74/hma-uidfake/releases/download/v0.3.14-test-fork/hma-uidfake-fork-0.3.14-test.zip)
+[![Скачать последнюю версию](https://img.shields.io/badge/⬇_Скачать_последнюю_версию-ZIP-2e9c82?style=for-the-badge)](https://github.com/Mobilelegends74/hma-uidfake/releases/download/v0.3.16/hma-uidfake-fork-0.3.16-test.zip)
 
 [![Патчи для ядра](https://img.shields.io/badge/Патчи_для_ядра-Built--in_UIDFAKE-6d43d6?style=for-the-badge&logo=linux&logoColor=white)](https://github.com/Mobilelegends74/hma-uidfake/tree/kernel-patches)
 
@@ -45,7 +45,7 @@
 | **Резервное копирование** | Импорт, экспорт и ручное редактирование JSON-конфигурации; запись через `sync-tool`. |
 | **Статус и диагностика** | Состояние загрузки и причины отказа; нижняя кнопка сохраняет журналы, конфиги и сведения о ядре в архив в Download. Автоматической отправки нет. |
 | **Автоматический запуск** | Загрузка подходящего LKM при обычной перезагрузке после установки, без ручного `allow_load`. |
-| **8 вариантов KMI** | Ядра GKI / KMI от Android 12 до Android 17; автоматический выбор совместимой сборки. |
+| **8 вариантов KMI + ABI 6.12.38** | Ядра GKI / KMI от Android 12 до Android 17 и дополнительный вариант 6.12.38; автоматический выбор совместимой сборки. |
 | **Manual inject** | При отсутствии загруженного модуля позволяет явно передать выбранный `.ko` ядру без наших проверок KMI/ABI. Только после подтверждения риска; проверки самого ядра сохраняются. |
 
 ## Требования
@@ -72,7 +72,7 @@
 
 Начиная с **0.3.7-fork**, кастомные ядра без Android-суффикса могут определяться по ABI-данным реально загруженных модулей с проверенным build ID. Выбирается только однозначный кандидат без обнаруженных несовпадений CRC; при недостатке данных загрузка отклоняется. Загрузка не обходит проверки ядра. [Изменения 0.3.7](docs/releases/v0.3.7-fork.md).
 
-1. Скачайте **[последний установочный ZIP](https://github.com/Mobilelegends74/hma-uidfake/releases/download/v0.3.14-test-fork/hma-uidfake-fork-0.3.14-test.zip)**.
+1. Скачайте **[последний установочный ZIP](https://github.com/Mobilelegends74/hma-uidfake/releases/download/v0.3.16/hma-uidfake-fork-0.3.16-test.zip)**.
 2. Откройте KernelSU Next → **Модули** → **Установить из хранилища** и выберите ZIP.
 3. Установщик определит KMI текущего ядра и **системный язык Android**. Русский Android → русские справка, About и статус; любой другой язык → английский. Названия функций сохраняются на английском.
 4. Перезагрузите устройство **один раз** обычным способом. Дополнительный файл `allow_load` создавать не нужно.
@@ -90,9 +90,11 @@
 
 **Диагностика:** внизу главного меню нажмите **Сохранить диагностику**. Архив появится в Download. Он содержит названия приложений и правила — передавайте его лично.
 
-**Manual inject:** если модуль не загрузился, появится дополнительный пункт. Выберите KMI и подтвердите **«Принимаю риск — загрузить»**. Выбранный `.ko` передаётся загрузчику ядра без предварительных проверок KMI/ABI UIDFAKE; само ядро может отказать. Попытка одноразовая: при следующей перезагрузке работает обычный автоматический выбор. Это не прошивка ядра и не гарантия совместимости.
+**Manual inject:** если модуль не загрузился, появится дополнительный пункт. Меню показывает только варианты текущей ветки Linux. Выберите версию и подтвердите **«Принимаю риск — загрузить»**. Выбранный `.ko` передаётся загрузчику ядра без предварительных проверок KMI/ABI UIDFAKE; само ядро может отказать. Попытка одноразовая: при следующей перезагрузке работает обычный автоматический выбор. Это не прошивка ядра и не гарантия совместимости.
 
-**Текущий релиз 0.3.14:** устранена зависимость от `static_key_count` во всех восьми `.ko`, вызывавшая отказ загрузки на 5.15.220-Wild. ZIP опубликован без пересборки: технические имена тега, файла и версии внутри модуля сохраняют `test`; на GitHub это обычный релиз. [Изменения](docs/releases/v0.3.14-fork.md).
+**Текущий релиз 0.3.16:** совместимость с дополнительным ABI 6.12.38, исправление зависимости `path_put`, выровненный Manual inject и обновления только из обычных релизов. ZIP опубликован без пересборки; внутренняя маркировка TEST сохранена. [Изменения](docs/releases/v0.3.16-fork.md).
+
+**Кнопка обновления:** поддерживается совместимыми рут-менеджерами начиная с этой версии. Установите её вручную поверх старой версии и перезагрузитесь; последующие обычные релизы с большим versionCode будут предлагаться автоматически. Prerelease в этот канал не попадают.
 
 ## Совместимость и проверки
 

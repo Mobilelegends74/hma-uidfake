@@ -7,14 +7,14 @@
 **Kernel-side UID visibility guard for KernelSU Next — a companion to HMA and HMA-OSS.**
 
 [![Build](https://img.shields.io/github/actions/workflow/status/Mobilelegends74/hma-uidfake/build.yml?branch=main&label=Build&style=flat-square)](https://github.com/Mobilelegends74/hma-uidfake/actions/workflows/build.yml)
-[![Latest release](https://img.shields.io/badge/Latest_release-v0.3.14-orange?style=flat-square)](https://github.com/Mobilelegends74/hma-uidfake/releases/latest)
+[![Latest release](https://img.shields.io/badge/Latest_release-v0.3.16-orange?style=flat-square)](https://github.com/Mobilelegends74/hma-uidfake/releases/latest)
 [![Downloads](docs/assets/downloads.svg)](https://github.com/Mobilelegends74/hma-uidfake/releases)
 [![GPL-2.0](https://img.shields.io/badge/License-GPL--2.0-blue?style=flat-square)](LICENSE)
 [![Languages](https://img.shields.io/badge/WebUI-Русский%20%2F%20English-3bba9d?style=flat-square)](#webui--languages)
 
 [Русская версия](README.md) · **English**
 
-[![Download latest ZIP](https://img.shields.io/badge/⬇_Download_latest_version-ZIP-2e9c82?style=for-the-badge)](https://github.com/Mobilelegends74/hma-uidfake/releases/download/v0.3.14-test-fork/hma-uidfake-fork-0.3.14-test.zip)
+[![Download latest ZIP](https://img.shields.io/badge/⬇_Download_latest_version-ZIP-2e9c82?style=for-the-badge)](https://github.com/Mobilelegends74/hma-uidfake/releases/download/v0.3.16/hma-uidfake-fork-0.3.16-test.zip)
 
 [![Kernel patches](https://img.shields.io/badge/Kernel_patches-Built--in_UIDFAKE-6d43d6?style=for-the-badge&logo=linux&logoColor=white)](https://github.com/Mobilelegends74/hma-uidfake/tree/kernel-patches)
 
@@ -40,7 +40,7 @@ It is an additional privacy layer, **not a replacement for HMA-OSS**. The fork b
 | **Russian / English explanations** | Feature names stay in English. Contextual `?` help, About / How it works explanations and the compact KernelSU status follow **Android's system language at installation time**; other languages use English. |
 | **Minimal module status** | The KernelSU module list displays only `✅ Working` or `❌ Not working`, with details available inside WebUI. |
 | **Automatic start** | Loads the selected KMI build after one normal reboot, without a manual `allow_load` gate. |
-| **8 KMI targets** | Separate builds for Android 12 through Android 17 GKI/KMI variants. |
+| **8 KMI targets + 6.12.38 ABI** | Android 12 through Android 17 GKI/KMI builds plus a separate 6.12.38 ABI variant. |
 
 ## Requirements and supported KMIs
 
@@ -61,7 +61,7 @@ Requires **ARM64**, root with **KernelSU / KernelSU Next** capable of loading an
 
 Since **0.3.7-fork**, custom kernels without an Android suffix can be identified using CRC references from build-ID-verified live modules. Only a unique candidate with no observed CRC mismatch is selected; insufficient evidence is rejected. Kernel admission checks are never bypassed. See [changes](CHANGELOG.md).
 
-1. [**Download the latest flashable ZIP**](https://github.com/Mobilelegends74/hma-uidfake/releases/download/v0.3.14-test-fork/hma-uidfake-fork-0.3.14-test.zip).
+1. [**Download the latest flashable ZIP**](https://github.com/Mobilelegends74/hma-uidfake/releases/download/v0.3.16/hma-uidfake-fork-0.3.16-test.zip).
 2. In KernelSU Next, open **Modules** → **Install from storage** and select the ZIP.
 3. The installer detects both the kernel KMI and the Android **system language**. Russian Android → Russian help, About text and status; all other languages → English. Feature labels remain in English.
 4. Perform **one normal reboot**. No `allow_load` file and no second reboot are required.
@@ -81,7 +81,9 @@ Search and manage apps, create and edit templates, copy and restore policies, ch
 
 **Manual inject:** shown when the kernel module is absent. Select a packaged KMI and confirm **Accept risk — load**. The selected `.ko` reaches the kernel loader without UIDFAKE's KMI/ABI preflight; kernel admission checks still apply and may reject it. This is a one-shot attempt, not flashing a kernel. Normal automatic selection runs again after reboot. Compatibility is not guaranteed.
 
-**Release 0.3.14** removes the `static_key_count` dependency from all eight `.ko` builds, addressing the observed loading failure on 5.15.220-Wild. The ZIP is promoted without rebuilding. Its existing tag, filename and internal version retain `test`; GitHub marks it as a regular release. [Changes](docs/releases/v0.3.14-fork.md).
+**Release 0.3.16:** an additional 6.12.38 ABI variant, path_put dependency fix, aligned Manual inject choices filtered by the running Linux branch, and stable-only root-manager updates. Published without rebuilding; the ZIP retains its internal TEST label. [Changes](docs/releases/v0.3.16-fork.md).
+
+**Updates:** install this ZIP manually over older versions and reboot. Compatible root managers will offer subsequent ordinary releases with a higher versionCode; prereleases are excluded.
 
 ## Compatibility and limitations
 

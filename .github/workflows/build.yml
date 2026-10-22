@@ -13,6 +13,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   # One job per KMI, built inside the matching DDK container.
@@ -72,6 +73,10 @@ jobs:
             echo 'Unexpected static_key_count import: diagnostic branch regression'
             exit 1
           fi
+          if printf '%s\n' "$imports" | grep -qw path_put; then
+            echo 'Unexpected path_put import: trimmed vendor export regression'
+            exit 1
+          fi
           cp "$stage/hma_uidfake.ko" "out/${{ matrix.kmi }}_arm64_hma_uidfake.ko"
       - uses: actions/upload-artifact@v7
         with:
@@ -79,12 +84,105 @@ jobs:
           path: out/*.ko
           if-no-files-found: error
 
+  oneplus:
+    name: Audit source-built OnePlus 6.12.38 variant
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/cache/restore@v4
+        id: native-cache
+        with:
+          path: out-oneplus
+          key: oneplus-61238-${{ hashFiles('src/*.c', 'src/include/**', 'src/Makefile', 'compat/oneplus-6.12.38/kernel.config', 'scripts/build-oneplus-61238.sh') }}
+      - name: Wait for the native seed build if still running
+        if: steps.native-cache.outputs.cache-hit != 'true' && github.repository == 'Mobilelegends74/hma-uidfake'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 120); do
+            if ! state=$(gh run view 39640815076 --repo "$GITHUB_REPOSITORY" --json status --jq .status); then
+              echo 'Seed run unavailable; native source rebuild will be used'
+              exit 0
+            fi
+            [ "$state" = completed ] && break
+            [ "$attempt" -lt 120 ] || { echo 'Native seed build timed out'; exit 1; }
+            echo "Native compatibility build: $state"
+            sleep 30
+          done
+          conclusion=$(gh run view 39640815076 --repo "$GITHUB_REPOSITORY" --json conclusion --jq .conclusion)
+          [ "$conclusion" = success ] || { echo "Native seed build failed: $conclusion"; exit 1; }
+      - uses: actions/download-artifact@v8
+        if: steps.native-cache.outputs.cache-hit != 'true' && github.repository == 'Mobilelegends74/hma-uidfake'
+        continue-on-error: true
+        with:
+          name: oneplus-61238-source-build
+          run-id: 39640815076
+          github-token: ${{ github.token }}
+          path: native-build
+      - name: Reuse exact source-built candidate
+        id: native-reuse
+        if: steps.native-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          if [ -s native-build/src.manifest.sha256 ] && sha256sum -c native-build/src.manifest.sha256; then
+            mkdir -p out-oneplus
+            cp native-build/* out-oneplus/
+          else
+            echo 'rebuild=true' >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/cache/restore@v4
+        id: kernel-cache
+        if: steps.native-reuse.outputs.rebuild == 'true'
+        with:
+          path: ${{ runner.temp }}/oneplus-61238/source/out
+          key: oneplus-61238-kdir-${{ hashFiles('compat/oneplus-6.12.38/kernel.config', 'scripts/build-oneplus-61238.sh') }}
+      - name: Build native variant with reusable kernel context
+        if: steps.native-reuse.outputs.rebuild == 'true'
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y bc bison flex libssl-dev libelf-dev libdw-dev dwarves zstd libzstd-dev cpio rsync cmake pkg-config zlib1g-dev
+          bash scripts/build-oneplus-61238.sh
+      - uses: actions/cache/save@v4
+        if: always() && steps.native-reuse.outputs.rebuild == 'true' && steps.kernel-cache.outputs.cache-hit != 'true'
+        with:
+          path: ${{ runner.temp }}/oneplus-61238/source/out
+          key: ${{ steps.kernel-cache.outputs.cache-primary-key }}
+      - name: Verify exact module sources and kernel ABI
+        run: |
+          set -euo pipefail
+          sha256sum -c out-oneplus/src.manifest.sha256
+          sudo apt-get update
+          sudo apt-get install -y llvm
+          mkdir -p out profiles
+          cp out-oneplus/*_arm64_hma_uidfake.ko out/
+          llvm-strip -d out/*.ko
+          python3 scripts/check-oneplus-abi.py out/android16-6.12-oneplus-6.12.38_arm64_hma_uidfake.ko profiles/17975ac76c1fafe0c23e057f7d865b962878279d.abi
+      - uses: actions/cache/save@v4
+        if: steps.native-cache.outputs.cache-hit != 'true'
+        with:
+          path: out-oneplus
+          key: ${{ steps.native-cache.outputs.cache-primary-key }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ko-oneplus-61238
+          path: out/*.ko
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        with:
+          name: oneplus-kernel-profile
+          path: profiles/*.abi
+          if-no-files-found: error
+
   pack:
     name: pack module zip
     runs-on: ubuntu-latest
-    needs: lkm
+    needs: [lkm, oneplus]
     permissions:
       contents: write
+      actions: read
     steps:
       - uses: actions/checkout@v7
         with:
@@ -96,6 +194,10 @@ jobs:
           path: build/ko
           pattern: ko-*
           merge-multiple: true
+      - uses: actions/download-artifact@v8
+        with:
+          name: oneplus-kernel-profile
+          path: module/kernel-profiles
       - name: Install build dependencies
         run: |
           set -euo pipefail
@@ -136,9 +238,14 @@ jobs:
           python3 scripts/test-diagnostics.py
           python3 scripts/test-source-mode.py
           python3 scripts/test-kernel-image-abi.py
+          python3 scripts/test-kernel-image-btf.py
           python3 scripts/test-manual-inject.py
           python3 scripts/test-debug-key.py
+          python3 scripts/test-stable-update.py
+          python3 scripts/test-module-abi.py
           node scripts/test-webui-diagnostics.cjs
+          node scripts/test-webui-manual.cjs
+          python3 scripts/test-path-helpers.py
           grep -q 'report_status(active_kernel_policy' src/tools/sync.cpp
           grep -q -- '--get-config' src/tools/sync.cpp
           grep -q -- '--set-config' src/tools/sync.cpp
@@ -150,14 +257,16 @@ jobs:
           zip=$(find build/dist -maxdepth 1 -name '*.zip' -type f -print -quit)
           test -n "$zip"
           unzip -t "$zip"
-          unzip -p "$zip" module.prop | grep -q '^version=0[.]3[.]14-test-fork+'
-          unzip -p "$zip" module.prop | grep -q '^versionCode=3014$'
+          unzip -p "$zip" module.prop | grep -q '^version=0[.]3[.]16-test-fork+'
+          unzip -p "$zip" module.prop | grep -q '^versionCode=3016$'
+          unzip -Z1 "$zip" | grep -qx 'ko/android16-6.12-oneplus-6.12.38_arm64_hma_uidfake.ko'
+          unzip -Z1 "$zip" | grep -qx 'kernel-profiles/17975ac76c1fafe0c23e057f7d865b962878279d.abi'
           unzip -Z1 "$zip" | grep -qx 'manual-inject.sh'
           unzip -Z1 "$zip" | grep -qx 'kernel-profiles/c35dd83674df6260539509ea6671b906d2fa3a23.abi'
           for kmi in android12-5.10 android13-5.10 android13-5.15 android14-5.15 android14-6.1 android15-6.6 android16-6.12 android17-6.18; do
             unzip -Z1 "$zip" | grep -qx "ko/${kmi}_arm64_hma_uidfake.ko"
           done
-          [ "$(find build/ko -maxdepth 1 -name '*_arm64_hma_uidfake.ko' | wc -l)" -eq 8 ]
+          [ "$(find build/ko -maxdepth 1 -name '*_arm64_hma_uidfake.ko' | wc -l)" -eq 9 ]
           unzip -p "$zip" post-fs-data.sh | grep -q 'uidfake_load'
           unzip -p "$zip" service.sh | grep -q 'uidfake_load'
           unzip -Z1 "$zip" | grep -qx 'webroot/index.html'
@@ -184,13 +293,10 @@ jobs:
             exit 1
           fi
           unzip -p "$zip" service.sh | grep -q 'uidfake_load'
-          if unzip -p "$zip" module.prop | grep -q '^updateJson='; then
-            echo "External updater URL must not be present in audited test build"
-            exit 1
-          fi
+          unzip -p "$zip" module.prop | grep -qx 'updateJson=https://raw.githubusercontent.com/Mobilelegends74/hma-uidfake/main/update.json'
           sha256sum "$zip"
-          mv "$zip" build/dist/hma-uidfake-fork-0.3.14-test.zip
-          (cd build/dist && sha256sum hma-uidfake-fork-0.3.14-test.zip > SHA256SUMS)
+          mv "$zip" build/dist/hma-uidfake-fork-0.3.16-test.zip
+          (cd build/dist && sha256sum hma-uidfake-fork-0.3.16-test.zip > SHA256SUMS)
       - uses: actions/upload-artifact@v7
         with:
           name: module-zip
@@ -203,11 +309,11 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v3
         with:
-          name: HMA UID Fake fork 0.3.14 TEST — исправление static_key_count
-          body_path: docs/releases/v0.3.14-test-fork.md
+          name: HMA UID Fake fork 0.3.16 TEST — совместимость path_put
+          body_path: docs/releases/v0.3.16-test-fork.md
           draft: false
           prerelease: true
           make_latest: false
           files: |
-            build/dist/hma-uidfake-fork-0.3.14-test.zip
+            build/dist/hma-uidfake-fork-0.3.16-test.zip
             build/dist/SHA256SUMS

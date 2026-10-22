@@ -1302,6 +1302,24 @@ static u32 g_shadow_n;
 static DEFINE_MUTEX(g_shadow_lock);
 static int (*g_kern_path)(const char *name, unsigned int flags,
 			  struct path *path);
+static void (*g_path_put)(const struct path *path);
+
+/* Resolve both halves before acquiring any path reference. Some vendor GKI
+ * builds retain path_put internally but trim its module export. Use the same
+ * CFI-aware resolver as kern_path; never skip releasing a successful lookup.
+ * These pointers are initialized once, before netlink or hooks are enabled.
+ */
+static int apk_paths_init(void)
+{
+	g_kern_path = (void *)uidfake_lookup("kern_path");
+	g_path_put = (void *)uidfake_lookup("path_put");
+	if (!g_kern_path || !g_path_put) {
+		pr_err("uidfake: APK path helpers unavailable (kern_path=%d path_put=%d); refusing initialization\n",
+		       !!g_kern_path, !!g_path_put);
+		return -ENOENT;
+	}
+	return 0;
+}
 
 static bool uidfake_tag_pending_here(void);
 void uidfake_tag_name(u32 app); /* hooks.c: name the child, clear the wait */
@@ -1378,8 +1396,6 @@ __maybe_unused static int shadow_replace(const char *path, u32 uid)
 	if (app < UF_APP_MIN || app >= UF_APP_MIN + UF_APP_SPAN)
 		return -EINVAL;
 	if (g_kern_path == NULL)
-		g_kern_path = (void *)uidfake_lookup("kern_path");
-	if (g_kern_path == NULL)
 		return -ENOENT;
 	if (g_kern_path(path, 0, &p))
 		return -ENOENT;
@@ -1393,7 +1409,7 @@ __maybe_unused static int shadow_replace(const char *path, u32 uid)
 	 * the table to put back, never a pointer to the inode itself.
 	 */
 	inode = igrab(d_backing_inode(p.dentry));
-	path_put(&p);
+	g_path_put(&p);
 	if (inode == NULL)
 		return -ENOENT;
 	/*
@@ -1523,15 +1539,13 @@ int uidfake_apk_apply(const u32 *blob, u32 len)
 		    bytes[e[2] + e[3] - 1u] != '\0')
 			continue;
 		path = (const char *)(bytes + e[2]);
-		if (g_kern_path == NULL)
-			g_kern_path = (void *)uidfake_lookup("kern_path");
 		if (g_kern_path == NULL || g_kern_path(path, 0, &p))
 			continue;
 		/* the same reference the replacement takes: reading an inode the
 		 * package manager has already let go of is a use-after-free even in a
 		 * diagnostic */
 		inode = igrab(d_backing_inode(p.dentry));
-		path_put(&p);
+		g_path_put(&p);
 		if (inode != NULL && UF_DEBUG_ON())
 			pr_info("uidfake: apk probe %s: state=%#lx new=%d count=%d dev=%u ino=%lu size=%lld parent=%s\n",
 				path, (unsigned long)inode->i_state,
@@ -1619,14 +1633,12 @@ void uidfake_apk_remove(void)
 
 		if (s->path == NULL)
 			continue;
-		if (g_kern_path == NULL)
-			g_kern_path = (void *)uidfake_lookup("kern_path");
 		if (g_kern_path == NULL || g_kern_path(s->path, 0, &p) != 0) {
 			unresolved++;
 			continue;
 		}
 		inode = igrab(d_backing_inode(p.dentry));
-		path_put(&p);
+		g_path_put(&p);
 		if (inode == NULL)
 			continue;
 		if (READ_ONCE(inode->i_fop) == &s->fops)
@@ -1745,6 +1757,12 @@ static void policy_reset(void)
 
 int policy_init(void)
 {
+#ifndef UIDFAKE_HOST_TEST
+	int ret = apk_paths_init();
+
+	if (ret)
+		return ret;
+#endif
 	policy_reset();
 	return 0;
 }

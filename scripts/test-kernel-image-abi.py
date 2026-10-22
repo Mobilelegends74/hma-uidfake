@@ -20,6 +20,18 @@ for i, name in enumerate(names):
     struct.pack_into('<I', image, crc_start + i * 4, crc)
     expected[name] = crc
 assert exports(bytes(image)) == expected
+# Exported BSS variables are inside the ARM64 memory image, but beyond the
+# file-backed bytes. A long Rust export must not split the table either.
+long_name = 'rust_' + 'x' * 250
+name_offset = len(image)
+image.extend(long_name.encode() + b'\0')
+i = len(names) // 2
+old_name = names[i]
+pos = start + i * 12
+struct.pack_into('<iii', image, pos, len(image) + 4096 - pos, name_offset - pos - 4, 256 - pos - 8)
+struct.pack_into('<Q', image, 0x10, len(image) + 8192)
+expected[long_name] = expected.pop(old_name)
+assert exports(bytes(image)) == expected
 for bad in [b'not a kernel', bytes(128), b'\x7fELF' + bytes(256)]:
     try:
         exports(bad)

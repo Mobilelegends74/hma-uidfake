@@ -12,7 +12,7 @@ KMIS = ['android12-5.10', 'android13-5.10', 'android13-5.15', 'android14-5.15',
         'android14-6.1', 'android15-6.6', 'android16-6.12', 'android17-6.18']
 
 
-def elf(path, kmi, name='hma_uidfake', crc=True, machine=183, token=b'a', import_crc=True, embedded=True, bare=False, extended=False, fingerprint=None):
+def elf(path, kmi, name='hma_uidfake', crc=True, machine=183, token=b'a', import_crc=True, embedded=True, bare=False, extended=False, fingerprint=None, variant=''):
     version = kmi.split('-', 1)[1]
     branch = kmi.split('-', 1)[0]
     note = struct.pack('<III', 4, 20, 3) + b'GNU\0' + token * 20
@@ -20,6 +20,8 @@ def elf(path, kmi, name='hma_uidfake', crc=True, machine=183, token=b'a', import
     info = f'name={name}\0vermagic={release} SMP preempt mod_unload modversions aarch64\0'
     if embedded:
         info += f'uidfake_kmi={kmi}\0'
+    if variant:
+        info += f'uidfake_variant={variant}\0'
     items = [('.shstrtab', b'', 3), ('.modinfo', info.encode(), 1),
              ('.note.gnu.build-id', note, 7)]
     items += [('.strtab', b'\0_printk\0', 3),
@@ -181,6 +183,44 @@ with tempfile.TemporaryDirectory(prefix='uidfake-kmi-test-') as tmp:
         (root / 'dev').mkdir()
         (root / 'dev/kmsg').write_text('vendor: disagrees about version of symbol x, but ignore...\n')
     case('5.10.269-android12-9', code='ABI_CHECKS_BYPASSED', mutate=bypass_fixture)
+
+    variant_id = 'android16-6.12-oneplus-6.12.38'
+    def variant_fixture(mod, root, legacy=False, ambiguous=False, stale=False, profile=False, wrong_id=False):
+        fp = {f'abi_symbol_{i}': i + 100 for i in range(8)}
+        elf(mod / 'ko/android16-6.12_arm64_hma_uidfake.ko', 'android16-6.12',
+            fingerprint=fp, extended=True)
+        values = dict(fp, module_layout=0x12345678 if ambiguous else 0xe976b219)
+        elf(mod / 'ko' / (variant_id + '_arm64_hma_uidfake.ko'), 'android16-6.12',
+            fingerprint=values, extended=True, variant='oneplus-6.12.38')
+        if profile:
+            folder = mod / 'kernel-profiles'
+            folder.mkdir()
+            lines = ['build_id ' + 'ab' * 20, 'kmi android16-6.12',
+                     'candidate ' + variant_id, 'banner Linux version 6.12.38-android16-OP-WILD']
+            for name, crc in dict(values, _printk=0x87654321).items():
+                lines.append(f'crc {name} {crc:08x}')
+            (folder / 'oneplus.abi').write_text('\n'.join(lines) + '\n')
+            (root / 'sys/kernel').mkdir(parents=True)
+            (root / 'sys/kernel/notes').write_bytes(struct.pack('<III', 4, 20, 3) + b'GNU\0' + bytes.fromhex(('cd' if wrong_id else 'ab') * 20))
+            return
+        note = elf(root / 'vendor_dlkm/lib/modules/reference.ko', 'android16-6.12',
+                   name='reference', fingerprint=fp if legacy else values, extended=True)
+        live = root / 'sys/module/reference'
+        (live / 'notes').mkdir(parents=True)
+        (live / 'notes/.note.gnu.build-id').write_bytes(b'stale' if stale else note)
+        (live / 'taint').write_text('OE')
+
+    case('6.12.38-android16-OP-WILD', variant_id, cfg=abi_config, mutate=variant_fixture)
+    case('6.12.38-android16-OP-WILD', 'android16-6.12', cfg=abi_config,
+         mutate=lambda m, r: variant_fixture(m, r, legacy=True))
+    case('6.12.38-android16-OP-WILD', code='KMI_AMBIGUOUS', cfg=abi_config,
+         mutate=lambda m, r: variant_fixture(m, r, ambiguous=True))
+    case('6.12.38-android16-OP-WILD', 'android16-6.12', cfg=abi_config,
+         mutate=lambda m, r: variant_fixture(m, r, stale=True))
+    case('6.12.38-android16-OP-WILD', variant_id,
+         mutate=lambda m, r: variant_fixture(m, r, profile=True))
+    case('6.12.38-android16-OP-WILD', code='PROFILE_ID_UNVERIFIED',
+         mutate=lambda m, r: variant_fixture(m, r, profile=True, wrong_id=True))
 
     # Real compiled .ko metadata, when called by the pack CI after eight builds.
     real = Path(os.environ.get('UIDFAKE_TEST_KO_DIR', ROOT / 'build/ko'))

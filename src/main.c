@@ -52,8 +52,10 @@ void uidfake_debug_init(bool on)
 
 static int __init uidfake_init(void)
 {
-	if (policy_init())
-		return -ENOMEM;
+	int ret = policy_init();
+
+	if (ret)
+		return ret;
 
 	uidfake_debug_init(uidfake_debug);
 
@@ -77,6 +79,9 @@ module_exit(uidfake_exit);
 MODULE_LICENSE("GPL");
 #ifdef UIDFAKE_BUILD_KMI
 MODULE_INFO(uidfake_kmi, UIDFAKE_BUILD_KMI);
+#endif
+#ifdef UIDFAKE_BUILD_VARIANT
+MODULE_INFO(uidfake_variant, UIDFAKE_BUILD_VARIANT);
 #endif
 MODULE_AUTHOR("local");
 MODULE_DESCRIPTION(

@@ -24,7 +24,8 @@ int main(int argc, char **argv) {
         for (const char *kmi :
              {"android12-5.10", "android13-5.10", "android13-5.15",
               "android14-5.15", "android14-6.1", "android15-6.6",
-              "android16-6.12", "android17-6.18"})
+              "android16-6.12", "android17-6.18",
+              "android16-6.12-oneplus-6.12.38"})
           packaged |=
               file.filename() == std::string{kmi} + "_arm64_hma_uidfake.ko";
         if (!packaged || file.parent_path().filename() != "ko")

@@ -19,6 +19,15 @@
 namespace uidfake::kmi {
 namespace {
 constexpr std::size_t limit = 32 * 1024 * 1024;
+constexpr const char *oneplus_variant = "android16-6.12-oneplus-6.12.38";
+std::string base_kmi(const std::string &id) {
+  return id == oneplus_variant ? "android16-6.12" : id;
+}
+bool variant_matches(const Module &module, const std::string &id) {
+  const auto field = module.info.find("uidfake_variant");
+  return id != oneplus_variant ||
+         (field != module.info.end() && field->second == "oneplus-6.12.38");
+}
 std::vector<unsigned char> bytes(const std::filesystem::path &path,
                                  std::size_t maximum = limit) {
   std::ifstream in(path, std::ios::binary);
@@ -146,7 +155,7 @@ Module inspect(const std::filesystem::path &path) {
     if (equal != std::string::npos) {
       auto key = item.substr(0, equal), value = item.substr(equal + 1);
       if (key == "name" || key == "vermagic" || key == "srcversion" ||
-          key == "uidfake_kmi") {
+          key == "uidfake_kmi" || key == "uidfake_variant") {
         if (!result.info.emplace(key, value).second)
           throw std::runtime_error("duplicate module identity field");
       }
@@ -246,7 +255,7 @@ std::optional<Result> image_profile(const std::filesystem::path &directory,
     if (file.path().extension() != ".abi")
       continue;
     std::istringstream input(text(file.path()));
-    std::string line, id, kmi, expected_banner;
+    std::string line, id, kmi, candidate, expected_banner;
     std::map<std::string, uint64_t> crcs;
     while (std::getline(input, line)) {
       if (line.rfind("banner ", 0) == 0)
@@ -255,6 +264,8 @@ std::optional<Result> image_profile(const std::filesystem::path &directory,
         id = line.substr(9);
       else if (line.rfind("kmi ", 0) == 0)
         kmi = line.substr(4);
+      else if (line.rfind("candidate ", 0) == 0)
+        candidate = line.substr(10);
       else if (line.rfind("crc ", 0) == 0) {
         std::istringstream record(line.substr(4));
         std::string name, hex;
@@ -267,12 +278,15 @@ std::optional<Result> image_profile(const std::filesystem::path &directory,
     }
     if (expected_banner != current_banner)
       continue;
+    if (candidate.empty())
+      candidate = kmi;
     const std::string evidence =
         "kernel image profile: " + id +
         "; complete import comparison (not vendor CRCs)\n";
     if (!std::regex_match(id, std::regex("[0-9a-f]{40}")) ||
         !std::regex_match(kmi, std::regex("android[0-9]+-" + version)) ||
-        !crcs.count("module_layout"))
+        !crcs.count("module_layout") || base_kmi(candidate) != kmi ||
+        (candidate != kmi && candidate != oneplus_variant))
       return Result{
           {}, "PROFILE_INVALID", "Invalid kernel-image ABI profile", evidence};
     std::vector<unsigned char> needle{4, 0, 0, 0, 20,  0,   0,   0,
@@ -285,13 +299,14 @@ std::optional<Result> image_profile(const std::filesystem::path &directory,
       return Result{
           {},
           "PROFILE_ID_UNVERIFIED",
-          "Kernel banner matches a known CRC-bypass image, but live kernel "
+          "Kernel banner matches a known ABI image, but live kernel "
           "build ID is unavailable/different; refusing vendor inference",
           evidence};
     const auto module =
-        inspect(directory / "ko" / (kmi + "_arm64_hma_uidfake.ko"));
+        inspect(directory / "ko" / (candidate + "_arm64_hma_uidfake.ko"));
     if (!module.versioned || module.info.at("name") != "hma_uidfake" ||
         module.info.at("uidfake_kmi") != kmi ||
+        !variant_matches(module, candidate) ||
         module.info.at("vermagic").rfind(version + ".", 0) != 0 ||
         !std::regex_search(module.info.at("vermagic"),
                            std::regex("(^| )modversions( |$)")))
@@ -321,7 +336,7 @@ std::optional<Result> image_profile(const std::filesystem::path &directory,
                     "exact kernel image; a matching source-built LKM is "
                     "required (no force/CRC rewriting)",
                     details};
-    return Result{kmi, "KMI_SELECTED",
+    return Result{candidate, "KMI_SELECTED",
                   "Live kernel build ID and all module import CRCs match "
                   "kernel-image profile; runtime hook testing still required",
                   details};
@@ -382,7 +397,12 @@ Result select(const std::filesystem::path &directory,
   if (std::regex_search(banner, banner_release,
                         std::regex("^Linux version ([^ \t\n]+)")))
     merge(banner_release[1], "kernel /proc/version release");
-  if (found.empty()) {
+  const bool compare_variants =
+      version == "6.12" &&
+      std::filesystem::is_regular_file(
+          directory / "ko" /
+          (std::string{oneplus_variant} + "_arm64_hma_uidfake.ko"));
+  if (found.empty() || compare_variants) {
     // Trust on-disk vendor module provenance only when its build-id note
     // byte-matches a currently loaded kernel module, not just a filename or
     // a stale vendor partition. No module is loaded during this discovery.
@@ -466,13 +486,20 @@ Result select(const std::filesystem::path &directory,
                 " crc_symbols=" + std::to_string(runtime_crcs.size()) +
                 " unreadable_or_invalid=" + std::to_string(unreadable) + "\n";
   }
-  if (found.empty() && crc_conflict)
+  if ((found.empty() || compare_variants) && crc_conflict)
     return {{},
             "ABI_CONFLICT",
             "Verified loaded modules disagree on symbol CRCs; refusing "
             "inconsistent evidence",
             evidence};
-  if (found.empty() && !runtime_crcs.empty()) {
+  if (found.size() > 1)
+    return {{},
+            "KMI_AMBIGUOUS",
+            "Conflicting kernel KMI evidence; refusing cross-KMI load",
+            evidence};
+  if ((found.empty() || compare_variants) && !runtime_crcs.empty()) {
+    const auto identity = found;
+    std::set<std::string> matches;
     // This is candidate identification, not a claim of complete ABI coverage.
     // Require module_layout AND multiple other CRCs, zero observed mismatches,
     // and a unique candidate. All unseen imports are still checked by the
@@ -485,17 +512,21 @@ Result select(const std::filesystem::path &directory,
           file.substr(file.size() - suffix.size()) != suffix)
         continue;
       const auto id = file.substr(0, file.size() - suffix.size());
-      if (!std::regex_match(id, std::regex("android[0-9]+-[0-9]+[.][0-9]+")) ||
-          id.substr(id.find('-') + 1) != version)
+      const auto base = base_kmi(id);
+      if (!std::regex_match(base,
+                            std::regex("android[0-9]+-[0-9]+[.][0-9]+")) ||
+          base.substr(base.find('-') + 1) != version ||
+          (!identity.empty() && !identity.count(base)))
         continue;
       Module candidate;
       try {
         candidate = inspect(entry.path());
         const auto ids = identities(candidate.info["vermagic"], version);
         if (candidate.info["name"] != "hma_uidfake" ||
-            candidate.info["uidfake_kmi"] != id || !candidate.versioned ||
+            candidate.info["uidfake_kmi"] != base || !candidate.versioned ||
+            !variant_matches(candidate, id) ||
             candidate.info["vermagic"].rfind(version + ".", 0) != 0 ||
-            (!ids.empty() && ids != std::set<std::string>{id}) ||
+            (!ids.empty() && ids != std::set<std::string>{base}) ||
             !std::regex_search(candidate.info["vermagic"],
                                std::regex("(^| )modversions( |$)")))
           return {{},
@@ -529,8 +560,9 @@ Result select(const std::filesystem::path &directory,
           " module_layout=" + (layout_match ? "match" : "missing/mismatch") +
           (differences.empty() ? "" : " differing=" + differences) + "\n";
       if (layout_match && common >= 8 && !mismatch)
-        found.insert(id);
+        matches.insert(id);
     }
+    found = std::move(matches);
     if (found.empty())
       return {{},
               "ABI_UNCONFIRMED",
@@ -547,6 +579,7 @@ Result select(const std::filesystem::path &directory,
                 : "Conflicting kernel KMI evidence; refusing cross-KMI load",
             evidence};
   const auto chosen = *found.begin();
+  const auto chosen_base = base_kmi(chosen);
   const auto path = directory / "ko" / (chosen + "_arm64_hma_uidfake.ko");
   if (!std::filesystem::is_regular_file(path))
     return {{}, "KMI_MISSING", "Package has no module for " + chosen, evidence};
@@ -556,9 +589,11 @@ Result select(const std::filesystem::path &directory,
     const auto embedded = m.info.find("uidfake_kmi");
     const bool identity_ok =
         embedded == m.info.end()
-            ? ids == found
-            : embedded->second == chosen && (ids.empty() || ids == found);
+            ? ids == std::set<std::string>{chosen_base}
+            : embedded->second == chosen_base &&
+                  (ids.empty() || ids == std::set<std::string>{chosen_base});
     if (m.info["name"] != "hma_uidfake" || !identity_ok || !m.versioned ||
+        !variant_matches(m, chosen) ||
         m.info["vermagic"].rfind(version + ".", 0) != 0 ||
         !std::regex_search(m.info["vermagic"],
                            std::regex("(^| )modversions( |$)")))

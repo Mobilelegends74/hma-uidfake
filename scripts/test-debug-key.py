@@ -23,7 +23,7 @@ with tempfile.TemporaryDirectory(prefix='uidfake-debug-key-') as tmp:
 #define HZ 100
 struct static_key_false { bool enabled; };
 extern struct static_key_false uidfake_debug_key;
-static int enables, disables, cancels, installs, removes, frees;
+static int enables, disables, cancels, installs, removes, frees, policy_error;
 #define UF_DEBUG_ON() (uidfake_debug_key.enabled)
 #define static_branch_enable(key) ((key)->enabled = true, ++enables)
 #define static_branch_disable(key) ((key)->enabled = false, ++disables)
@@ -47,7 +47,7 @@ static void cancel_delayed_work_sync(struct delayed_work *work) {
 #define module_exit(...)
 static void test_log(const char *fmt, ...) { (void)fmt; }
 #define pr_info(...) test_log(__VA_ARGS__)
-static int policy_init(void) { return 0; }
+static int policy_init(void) { return policy_error; }
 static void policy_free(void) { ++frees; }
 static void netlink_init(void) {}
 static void netlink_exit(void) {}
@@ -58,6 +58,10 @@ static void hooks_remove(void) { ++removes; }
     runner = root / 'test.c'
     runner.write_text('#include "' + str(entry) + '"\n' + '''
 int main(void) {
+  policy_error = -ENOENT;
+  assert(uidfake_init() == -ENOENT);
+  assert(installs == 0 && !uidfake_debug_work.pending);
+  policy_error = 0;
   assert(!UF_DEBUG_ON());
   uidfake_debug_init(false);
   assert(!UF_DEBUG_ON() && enables == 0 && !uidfake_debug_work.pending);

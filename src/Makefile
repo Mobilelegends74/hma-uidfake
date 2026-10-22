@@ -56,3 +56,6 @@ ccflags-y += -I$(MDIR)/include
 ccflags-y += -I$(MDIR)
 ccflags-y += -gz=none
 ccflags-y += -DUIDFAKE_BUILD_KMI=\"$(KMI)\"
+ifneq ($(UIDFAKE_VARIANT),)
+ccflags-y += -DUIDFAKE_BUILD_VARIANT=\"$(UIDFAKE_VARIANT)\"
+endif

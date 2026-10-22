@@ -22,7 +22,7 @@ const MODULE_DIR = "/data/adb/modules/hma-uidfake";
 const TOOL = MODULE_DIR + "/sync-tool";
 const THEME_KEY = "hma-uidfake.theme";
 const REPO_URL = "https://github.com/Mobilelegends74/hma-uidfake";
-const MANUAL_KMIS = ["android12-5.10", "android13-5.10", "android13-5.15", "android14-5.15", "android14-6.1", "android15-6.6", "android16-6.12", "android17-6.18"];
+const MANUAL_KMIS = ["android12-5.10", "android13-5.10", "android13-5.15", "android14-5.15", "android14-6.1", "android15-6.6", "android16-6.12", "android16-6.12-oneplus-6.12.38", "android17-6.18"];
 
 /* ---- talking to sync-tool ---- */
 
@@ -114,6 +114,7 @@ const api = {
     return runJson(TOOL + " --set-source " + mode);
   },
   diagnostics: () => runJson("sh " + MODULE_DIR + "/diagnostics.sh"),
+  kernelVersion: () => runOk("cat /proc/version"),
   status: () => runJson(TOOL + " --status"),
   packages: () => runJson(TOOL + " --packages"),
   config: () => runJson(TOOL + " --get-config"),
@@ -727,8 +728,25 @@ function viewHome(body) {
 }
 
 let manualInjectRunning = false;
-function showManualInject() {
-  if (manualInjectRunning) return;
+let manualChoicesLoading = false;
+function manualKernelChoices(version) {
+  // Match the running Linux branch, not the Android userspace version.
+  const match = /^Linux version (\d+\.\d+)(?:\.|[-\s]|$)/.exec(String(version).trim());
+  return match ? MANUAL_KMIS.filter((candidate) => candidate.split("-")[1] === match[1]) : [];
+}
+
+async function showManualInject() {
+  if (manualInjectRunning || manualChoicesLoading) return;
+  manualChoicesLoading = true;
+  let choices = [];
+  let error = "";
+  try {
+    choices = manualKernelChoices(await api.kernelVersion());
+  } catch (err) {
+    error = firstLine(err.message);
+  } finally {
+    manualChoicesLoading = false;
+  }
   sheet({
     title: "Manual inject",
     text: languageText(
@@ -738,12 +756,21 @@ function showManualInject() {
     infoOnly: true,
     confirm: languageText("Закрыть", "Close"),
     body: (wrap) => {
-      for (const candidate of MANUAL_KMIS) {
-        const button = el("button", "btn tonal", candidate);
+      if (!choices.length) {
+        wrap.append(note(error || languageText("Для текущей ветки ядра нет вариантов в этом пакете либо не удалось определить ветку ядра.", "No packaged variants for the running kernel branch, or the branch could not be identified.")));
+        return;
+      }
+      const grid = el("div", "manual-kmi-grid");
+      for (const candidate of choices) {
+        const button = el("button", "btn tonal manual-kmi-choice");
+        const label = candidate === "android16-6.12-oneplus-6.12.38"
+          ? "android16-6.12.38" : candidate;
+        button.append(el("span", "manual-kmi-name", label));
         button.type = "button";
         button.addEventListener("click", () => confirmManualInject(candidate));
-        wrap.append(button);
+        grid.append(button);
       }
+      wrap.append(grid);
     },
     onConfirm: () => false,
   });
@@ -752,7 +779,7 @@ function showManualInject() {
 function confirmManualInject(candidate) {
   if (manualInjectRunning || !MANUAL_KMIS.includes(candidate)) return;
   sheet({
-    title: "Manual inject · " + candidate,
+    title: "Manual inject · " + (candidate === "android16-6.12-oneplus-6.12.38" ? "android16-6.12.38" : candidate),
     text: languageText("Вы сознательно запускаете загрузку без наших проверок совместимости. Неподходящий .ko может вызвать зависание или перезагрузку. Ядро всё ещё вправе отклонить его. Продолжить на свой риск?", "You are explicitly loading without our compatibility checks. An incompatible .ko may hang or reboot the device. The kernel may still reject it. Continue at your own risk?"),
     confirm: languageText("Принимаю риск — загрузить", "Accept risk — load"),
     onConfirm: async () => {

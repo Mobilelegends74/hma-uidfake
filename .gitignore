@@ -8,6 +8,11 @@ modules.order
 build/
 out/
 dist/
+out-oneplus/
+native-build/
+profiles/
+# Generated only after the native candidate passes the complete Image audit.
+/module/kernel-profiles/17975ac76c1fafe0c23e057f7d865b962878279d.abi
 
 # Scratch space for local analysis; nothing here belongs in a commit.
 .scratch/
