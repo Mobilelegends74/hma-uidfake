@@ -8,7 +8,7 @@
 
 [![Build](https://img.shields.io/github/actions/workflow/status/Mobilelegends74/hma-uidfake/build.yml?branch=main&label=Build&style=flat-square)](https://github.com/Mobilelegends74/hma-uidfake/actions/workflows/build.yml)
 [![Latest release](https://img.shields.io/badge/Latest_release-v0.3.16-orange?style=flat-square)](https://github.com/Mobilelegends74/hma-uidfake/releases/latest)
-[![Downloads](docs/assets/downloads.svg)](https://github.com/Mobilelegends74/hma-uidfake/releases)
+[![Downloads](https://img.shields.io/github/downloads/Mobilelegends74/hma-uidfake/total?label=downloads&style=flat-square)](https://github.com/Mobilelegends74/hma-uidfake/releases)
 [![GPL-2.0](https://img.shields.io/badge/License-GPL--2.0-blue?style=flat-square)](LICENSE)
 [![Languages](https://img.shields.io/badge/WebUI-Русский%20%2F%20English-3bba9d?style=flat-square)](#webui--languages)
 
@@ -81,7 +81,7 @@ Search and manage apps, create and edit templates, copy and restore policies, ch
 
 **Manual inject:** shown when the kernel module is absent. Select a packaged KMI and confirm **Accept risk — load**. The selected `.ko` reaches the kernel loader without UIDFAKE's KMI/ABI preflight; kernel admission checks still apply and may reject it. This is a one-shot attempt, not flashing a kernel. Normal automatic selection runs again after reboot. Compatibility is not guaranteed.
 
-**Release 0.3.16:** an additional 6.12.38 ABI variant, path_put dependency fix, aligned Manual inject choices filtered by the running Linux branch, and stable-only root-manager updates. Published without rebuilding; the ZIP retains its internal TEST label. [Changes](docs/releases/v0.3.16-fork.md).
+**Release 0.3.16:** an additional 6.12.38 ABI variant, path_put dependency fix, aligned Manual inject choices filtered by the running Linux branch, and stable-only root-manager updates. [Changes](docs/releases/v0.3.16-fork.md).
 
 **Updates:** install this ZIP manually over older versions and reboot. Compatible root managers will offer subsequent ordinary releases with a higher versionCode; prereleases are excluded.
 

@@ -1,35 +1,63 @@
 #!/usr/bin/env python3
-"""Regenerate the README download badge from current GitHub release assets."""
+"""Count every public release asset in this fork, including prereleases."""
 import json
 import os
 from pathlib import Path
 from urllib.request import Request, urlopen
 
 
-def count_downloads(repo: str, token: str) -> int:
-    total = 0
-    page = 1
-    while True:
-        url = f"https://api.github.com/repos/{repo}/releases?per_page=100&page={page}"
-        request = Request(url, headers={
+def graphql(query: str, variables: dict, token: str) -> dict:
+    request = Request("https://api.github.com/graphql",
+        data=json.dumps({"query": query, "variables": variables}).encode(), headers={
             "Accept": "application/vnd.github+json",
+            "Content-Type": "application/json",
             "Authorization": f"Bearer {token}",
             "User-Agent": "hma-uidfake-download-badge",
         })
-        with urlopen(request, timeout=30) as response:
-            releases = json.load(response)
-        if not isinstance(releases, list):
-            raise ValueError("GitHub API returned a non-list releases response")
-        for release in releases:
-            if release.get("draft"):
+    with urlopen(request, timeout=30) as response:
+        result = json.load(response)
+    if result.get("errors") or not result.get("data"):
+        raise ValueError(f"GitHub GraphQL error: {result.get('errors')}")
+    return result["data"]
+
+
+def count_downloads(repo: str, token: str) -> int:
+    # REST /releases may incorrectly return [] for this fork. GraphQL is also
+    # used by gh release list and exposes the complete repository release list.
+    owner, name = repo.split("/", 1)
+    total, cursor, release_count = 0, None, 0
+    while True:
+        after = ",after:" + json.dumps(cursor) if cursor else ""
+        query = '''query {
+          repository(owner:OWNER,name:NAME) { releases(first:100AFTER) {
+            nodes { id tagName isDraft releaseAssets(first:100) {
+              nodes { downloadCount name } pageInfo { hasNextPage endCursor }
+            } } pageInfo { hasNextPage endCursor }
+          } }
+        }'''.replace("OWNER", json.dumps(owner)).replace("NAME", json.dumps(name)).replace("AFTER", after)
+        data = graphql(query, {}, token)
+        releases = data["repository"]["releases"]
+        for release in releases["nodes"]:
+            if release["isDraft"]:
                 continue
-            for asset in release.get("assets", []):
-                name = asset.get("name", "")
-                if name.startswith("hma-uidfake") and name.lower().endswith(".zip"):
-                    total += asset.get("download_count", 0)
-        if len(releases) < 100:
-            return total
-        page += 1
+            release_count += 1
+            assets = release["releaseAssets"]
+            while True:
+                total += sum(int(a["downloadCount"]) for a in assets["nodes"])
+                if not assets["pageInfo"]["hasNextPage"]:
+                    break
+                assets = graphql('''query($id:ID!,$cursor:String) {
+                  node(id:$id) { ... on Release { releaseAssets(first:100,after:$cursor) {
+                    nodes { downloadCount } pageInfo { hasNextPage endCursor }
+                  } } }
+                }''', {"id": release["id"], "cursor": assets["pageInfo"]["endCursor"]},
+                    token)["node"]["releaseAssets"]
+        if not releases["pageInfo"]["hasNextPage"]:
+            break
+        cursor = releases["pageInfo"]["endCursor"]
+    if not release_count:
+        raise ValueError("No public releases returned; preserving existing badge")
+    return total
 
 
 def make_svg(count: int) -> str:
@@ -61,7 +89,7 @@ def main():
     path = Path("docs/assets/downloads.svg")
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(make_svg(total), encoding="utf-8")
-    print(f"GitHub release ZIP downloads: {total}")
+    print(f"Total GitHub release asset downloads (all versions): {total}")
 
 
 if __name__ == "__main__":

@@ -1,8 +1,6 @@
-name: Update download count badge
+name: Legacy download badge (manual only)
 
 on:
-  schedule:
-    - cron: '17 * * * *'
   workflow_dispatch:
 
 permissions:
@@ -18,7 +16,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: main
           persist-credentials: true
+      - name: Test aggregate download count
+        run: python3 scripts/test-downloads-badge.py
       - name: Refresh count from GitHub release assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -33,4 +34,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "docs: refresh downloads badge [skip ci]"
-          git push
+          git pull --rebase origin main
+          git push origin HEAD:main
