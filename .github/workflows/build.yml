@@ -73,6 +73,10 @@ jobs:
             echo 'Unexpected static_key_count import: diagnostic branch regression'
             exit 1
           fi
+          if printf '%s\n' "$imports" | grep -qw path_put; then
+            echo 'Unexpected path_put import: trimmed vendor export regression'
+            exit 1
+          fi
           cp "$stage/hma_uidfake.ko" "out/${{ matrix.kmi }}_arm64_hma_uidfake.ko"
       - uses: actions/upload-artifact@v7
         with:
@@ -241,6 +245,7 @@ jobs:
           python3 scripts/test-module-abi.py
           node scripts/test-webui-diagnostics.cjs
           node scripts/test-webui-manual.cjs
+          python3 scripts/test-path-helpers.py
           grep -q 'report_status(active_kernel_policy' src/tools/sync.cpp
           grep -q -- '--get-config' src/tools/sync.cpp
           grep -q -- '--set-config' src/tools/sync.cpp
@@ -252,8 +257,8 @@ jobs:
           zip=$(find build/dist -maxdepth 1 -name '*.zip' -type f -print -quit)
           test -n "$zip"
           unzip -t "$zip"
-          unzip -p "$zip" module.prop | grep -q '^version=0[.]3[.]15-test-fork+'
-          unzip -p "$zip" module.prop | grep -q '^versionCode=3015$'
+          unzip -p "$zip" module.prop | grep -q '^version=0[.]3[.]16-test-fork+'
+          unzip -p "$zip" module.prop | grep -q '^versionCode=3016$'
           unzip -Z1 "$zip" | grep -qx 'ko/android16-6.12-oneplus-6.12.38_arm64_hma_uidfake.ko'
           unzip -Z1 "$zip" | grep -qx 'kernel-profiles/17975ac76c1fafe0c23e057f7d865b962878279d.abi'
           unzip -Z1 "$zip" | grep -qx 'manual-inject.sh'
@@ -290,8 +295,8 @@ jobs:
           unzip -p "$zip" service.sh | grep -q 'uidfake_load'
           unzip -p "$zip" module.prop | grep -qx 'updateJson=https://raw.githubusercontent.com/Mobilelegends74/hma-uidfake/main/update.json'
           sha256sum "$zip"
-          mv "$zip" build/dist/hma-uidfake-fork-0.3.15-test.zip
-          (cd build/dist && sha256sum hma-uidfake-fork-0.3.15-test.zip > SHA256SUMS)
+          mv "$zip" build/dist/hma-uidfake-fork-0.3.16-test.zip
+          (cd build/dist && sha256sum hma-uidfake-fork-0.3.16-test.zip > SHA256SUMS)
       - uses: actions/upload-artifact@v7
         with:
           name: module-zip
@@ -304,11 +309,11 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v3
         with:
-          name: HMA UID Fake fork 0.3.15 TEST — OnePlus 6.12.38 и обновления
-          body_path: docs/releases/v0.3.15-test-fork.md
+          name: HMA UID Fake fork 0.3.16 TEST — совместимость path_put
+          body_path: docs/releases/v0.3.16-test-fork.md
           draft: false
           prerelease: true
           make_latest: false
           files: |
-            build/dist/hma-uidfake-fork-0.3.15-test.zip
+            build/dist/hma-uidfake-fork-0.3.16-test.zip
             build/dist/SHA256SUMS

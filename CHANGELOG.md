@@ -1,3 +1,8 @@
+## 0.3.16 TEST (trimmed path_put export compatibility)
+
+- Resolve APK path helpers before exposing hooks or netlink; remove the mandatory path_put ELF import while preserving reference release and CFI-aware resolution. Fail initialization explicitly if a helper is missing.
+- Preserve all 0.3.15 changes. VersionCode 3016; test artifact only, no stable release promotion.
+
 ## 0.3.15 TEST (OnePlus 6.12.38 and stable updates)
 
 - Align Manual inject choices in a two-column grid and show only the running Linux major/minor branch. Keep explicit risk confirmation and kernel admission unchanged.

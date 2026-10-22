@@ -25,5 +25,6 @@ for path in Path('build/ko').glob('*.ko'):
     result = api['inspect'](path.read_bytes())
     assert result['info']['name'] == 'hma_uidfake', path
     assert 'static_key_count' not in result['imports'], path
+    assert 'path_put' not in result['imports'], path
     print('PASS actual packaged ELF', path.name, len(result['crcs']))
 print('OK: ABI auditor format rejection, missing exports and CRC mismatch')

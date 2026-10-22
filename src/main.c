@@ -52,8 +52,10 @@ void uidfake_debug_init(bool on)
 
 static int __init uidfake_init(void)
 {
-	if (policy_init())
-		return -ENOMEM;
+	int ret = policy_init();
+
+	if (ret)
+		return ret;
 
 	uidfake_debug_init(uidfake_debug);
 
