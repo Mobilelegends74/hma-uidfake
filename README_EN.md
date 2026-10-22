@@ -8,7 +8,7 @@
 
 [![Build](https://img.shields.io/github/actions/workflow/status/Mobilelegends74/hma-uidfake/build.yml?branch=main&label=Build&style=flat-square)](https://github.com/Mobilelegends74/hma-uidfake/actions/workflows/build.yml)
 [![Latest release](https://img.shields.io/badge/Latest_release-v0.3.16-orange?style=flat-square)](https://github.com/Mobilelegends74/hma-uidfake/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/Mobilelegends74/hma-uidfake/total?label=downloads&style=flat-square)](https://github.com/Mobilelegends74/hma-uidfake/releases)
+[![Downloads](https://img.shields.io/github/downloads/Mobilelegends74/hma-uidfake/total.svg?style=flat-square&label=downloads&cacheSeconds=300)](https://github.com/Mobilelegends74/hma-uidfake/releases)
 [![GPL-2.0](https://img.shields.io/badge/License-GPL--2.0-blue?style=flat-square)](LICENSE)
 [![Languages](https://img.shields.io/badge/WebUI-Русский%20%2F%20English-3bba9d?style=flat-square)](#webui--languages)
 
